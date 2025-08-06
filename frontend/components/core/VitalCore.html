@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VitalCore - Healthcare Intelligence Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .vital-gradient { background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%); }
+        .vault-gradient { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+        .brain-gradient { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div x-data="vitalCoreApp()" class="min-h-screen">
+        <!-- Header -->
+        <header class="glass border-b border-white/20 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Logo -->
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 vital-gradient rounded-xl flex items-center justify-center">
+                            <i class="fas fa-heartbeat text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-900">VitalCore</h1>
+                            <p class="text-xs text-gray-500">Healthcare Intelligence Platform</p>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <nav class="hidden md:flex items-center space-x-8">
+                        <button @click="currentView = 'dashboard'" 
+                                :class="currentView === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-chart-line mr-2"></i>Dashboard
+                        </button>
+                        <button @click="currentView = 'medvault'" 
+                                :class="currentView === 'medvault' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-shield-alt mr-2"></i>MedVault
+                        </button>
+                        <button @click="currentView = 'medbrain'" 
+                                :class="currentView === 'medbrain' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-brain mr-2"></i>MedBrain
+                        </button>
+                        <button @click="currentView = 'analytics'" 
+                                :class="currentView === 'analytics' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-chart-bar mr-2"></i>Analytics
+                        </button>
+                    </nav>
+
+                    <!-- User Menu -->
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <button @click="showNotifications = !showNotifications" class="p-2 text-gray-600 hover:text-gray-900 transition-colors">
+                                <i class="fas fa-bell text-lg"></i>
+                                <span x-show="notifications.length > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center" x-text="notifications.length"></span>
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 vital-gradient rounded-full flex items-center justify-center">
+                                <span class="text-white text-sm font-medium">MD</span>
+                            </div>
+                            <div class="hidden md:block">
+                                <p class="text-sm font-medium">Dr. Medical Director</p>
+                                <p class="text-xs text-gray-500">Healthcare Administrator</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Dashboard View -->
+            <div x-show="currentView === 'dashboard'" x-transition>
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">VitalCore Dashboard</h2>
+                    <p class="text-gray-600">Comprehensive healthcare intelligence and analytics</p>
+                </div>
+
+                <!-- Platform Overview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- MedVault Card -->
+                    <div @click="currentView = 'medvault'" class="glass rounded-xl p-6 border border-white/20 card-hover cursor-pointer">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 vault-gradient rounded-lg flex items-center justify-center">
+                                <i class="fas fa-shield-alt text-white text-xl"></i>
+                            </div>
+                            <i class="fas fa-arrow-right text-gray-400"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">MedVault</h3>
+                        <p class="text-sm text-gray-600 mb-4">Secure medical data storage with PHI protection and SOC2/HIPAA compliance</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-2xl font-bold text-green-600" x-text="stats.secureRecords.toLocaleString()"></span>
+                            <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">99.9% Secure</span>
+                        </div>
+                    </div>
+
+                    <!-- MedBrain Card -->
+                    <div @click="currentView = 'medbrain'" class="glass rounded-xl p-6 border border-white/20 card-hover cursor-pointer">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 brain-gradient rounded-lg flex items-center justify-center">
+                                <i class="fas fa-brain text-white text-xl"></i>
+                            </div>
+                            <i class="fas fa-arrow-right text-gray-400"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">MedBrain</h3>
+                        <p class="text-sm text-gray-600 mb-4">AI assistant for clinical conversations and decision support</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-2xl font-bold text-purple-600" x-text="stats.aiInteractions.toLocaleString()"></span>
+                            <span class="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">96.7% Accuracy</span>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Card -->
+                    <div @click="currentView = 'analytics'" class="glass rounded-xl p-6 border border-white/20 card-hover cursor-pointer">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 vital-gradient rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chart-bar text-white text-xl"></i>
+                            </div>
+                            <i class="fas fa-arrow-right text-gray-400"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Healthcare Analytics</h3>
+                        <p class="text-sm text-gray-600 mb-4">Population health insights and predictive analytics</p>
+                        <div class="flex items-center justify-between">
+                            <span class="text-2xl font-bold text-blue-600" x-text="stats.activePatients.toLocaleString()"></span>
+                            <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Real-time</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Health Indicators -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">System Health</p>
+                                <p class="text-2xl font-bold text-green-600">100%</p>
+                            </div>
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-heart text-green-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">API Response</p>
+                                <p class="text-2xl font-bold text-blue-600">187ms</p>
+                            </div>
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-bolt text-blue-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Compliance</p>
+                                <p class="text-2xl font-bold text-green-600">98.7%</p>
+                            </div>
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-shield-alt text-green-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">AI Models</p>
+                                <p class="text-2xl font-bold text-purple-600">Online</p>
+                            </div>
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-robot text-purple-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MedVault View -->
+            <div x-show="currentView === 'medvault'" x-transition>
+                <div class="mb-8">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-12 h-12 vault-gradient rounded-lg flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">MedVault</h2>
+                            <p class="text-gray-600">Secure medical data storage with enterprise-grade protection</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Features -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                            <i class="fas fa-lock text-green-600 text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">AES-256 Encryption</h3>
+                        <p class="text-sm text-gray-600">Military-grade encryption for all PHI data at rest and in transit</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                            <i class="fas fa-eye text-blue-600 text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Audit Trails</h3>
+                        <p class="text-sm text-gray-600">Immutable logging of all data access with SOC2 compliance</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                            <i class="fas fa-key text-purple-600 text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Key Management</h3>
+                        <p class="text-sm text-gray-600">Rotating encryption keys with enterprise key management</p>
+                    </div>
+                </div>
+
+                <!-- Data Storage Stats -->
+                <div class="glass rounded-xl p-6 border border-white/20 mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-6">Storage Analytics</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="text-center">
+                            <p class="text-3xl font-bold text-green-600 mb-2" x-text="vault.totalRecords.toLocaleString()"></p>
+                            <p class="text-sm text-gray-600">Secure Records</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-3xl font-bold text-blue-600 mb-2" x-text="vault.encryptedData"></p>
+                            <p class="text-sm text-gray-600">Encrypted Data</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-3xl font-bold text-purple-600 mb-2" x-text="vault.backups"></p>
+                            <p class="text-sm text-gray-600">Daily Backups</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-3xl font-bold text-red-600 mb-2" x-text="vault.breaches"></p>
+                            <p class="text-sm text-gray-600">Security Breaches</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Access Log -->
+                <div class="glass rounded-xl p-6 border border-white/20">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent PHI Access</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3">Timestamp</th>
+                                    <th class="text-left py-3">User</th>
+                                    <th class="text-left py-3">Patient ID</th>
+                                    <th class="text-left py-3">Data Type</th>
+                                    <th class="text-left py-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="log in vaultLogs" :key="log.id">
+                                    <tr class="border-b border-gray-100">
+                                        <td class="py-3" x-text="log.timestamp"></td>
+                                        <td class="py-3" x-text="log.user"></td>
+                                        <td class="py-3" x-text="log.patientId"></td>
+                                        <td class="py-3" x-text="log.dataType"></td>
+                                        <td class="py-3">
+                                            <span class="bg-green-100 text-green-800 px-2 py-1 text-xs rounded-full">Authorized</span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MedBrain View -->
+            <div x-show="currentView === 'medbrain'" x-transition>
+                <div class="mb-8">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-12 h-12 brain-gradient rounded-lg flex items-center justify-center">
+                            <i class="fas fa-brain text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900">MedBrain</h2>
+                            <p class="text-gray-600">AI assistant for clinical conversations and decision support</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Capabilities -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                            <i class="fas fa-comments text-purple-600 text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Natural Conversations</h3>
+                        <p class="text-sm text-gray-600">Chat naturally about patient cases, diagnoses, and treatment plans</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                            <i class="fas fa-lightbulb text-green-600 text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Clinical Decision Support</h3>
+                        <p class="text-sm text-gray-600">Get AI-powered recommendations for complex medical cases</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                            <i class="fas fa-shield-alt text-blue-600 text-xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Privacy First</h3>
+                        <p class="text-sm text-gray-600">On-device processing ensures PHI never leaves your infrastructure</p>
+                    </div>
+                </div>
+
+                <!-- Chat Interface -->
+                <div class="glass rounded-xl border border-white/20 h-96 flex flex-col mb-8">
+                    <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                        <h3 class="font-semibold text-gray-900">Clinical AI Assistant</h3>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span class="text-sm text-gray-600">Online</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 p-6 overflow-y-auto">
+                        <div class="space-y-4">
+                            <template x-for="message in brainMessages" :key="message.id">
+                                <div :class="message.sender === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                                    <div :class="message.sender === 'user' ? 'brain-gradient text-white' : 'bg-gray-100 text-gray-900'"
+                                         class="max-w-xs lg:max-w-md px-4 py-3 rounded-lg">
+                                        <p class="text-sm" x-text="message.content"></p>
+                                        <p class="text-xs opacity-75 mt-1" x-text="message.timestamp"></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="p-6 border-t border-gray-200">
+                        <div class="flex space-x-3">
+                            <input type="text" 
+                                   x-model="brainInput"
+                                   @keyup.enter="sendBrainMessage()"
+                                   placeholder="Ask about patient diagnosis, treatment protocols, drug interactions..."
+                                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <button @click="sendBrainMessage()" 
+                                    class="brain-gradient text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics View -->
+            <div x-show="currentView === 'analytics'" x-transition>
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Healthcare Analytics</h2>
+                    <p class="text-gray-600">Population health insights and predictive analytics</p>
+                </div>
+
+                <!-- Analytics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <h3 class="text-sm font-medium text-gray-600 mb-2">Risk Predictions</h3>
+                        <p class="text-3xl font-bold text-red-600 mb-2" x-text="analytics.riskPredictions"></p>
+                        <p class="text-sm text-gray-500">High-risk patients identified</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <h3 class="text-sm font-medium text-gray-600 mb-2">Cost Savings</h3>
+                        <p class="text-3xl font-bold text-green-600 mb-2" x-text="analytics.costSavings"></p>
+                        <p class="text-sm text-gray-500">Through early intervention</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <h3 class="text-sm font-medium text-gray-600 mb-2">Quality Score</h3>
+                        <p class="text-3xl font-bold text-blue-600 mb-2" x-text="analytics.qualityScore + '%'"></p>
+                        <p class="text-sm text-gray-500">Care quality metrics</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-white/20">
+                        <h3 class="text-sm font-medium text-gray-600 mb-2">Efficiency</h3>
+                        <p class="text-3xl font-bold text-purple-600 mb-2" x-text="analytics.efficiency + '%'"></p>
+                        <p class="text-sm text-gray-500">Workflow optimization</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Notifications Panel -->
+        <div x-show="showNotifications" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 transform scale-95"
+             x-transition:enter-end="opacity-100 transform scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 transform scale-100"
+             x-transition:leave-end="opacity-0 transform scale-95"
+             class="fixed top-16 right-4 w-80 glass rounded-xl border border-white/20 p-4 z-50">
+            <h3 class="font-semibold text-gray-900 mb-3">System Notifications</h3>
+            <div class="space-y-3">
+                <template x-for="notification in notifications" :key="notification.id">
+                    <div class="flex items-start space-x-3 p-3 bg-white/50 rounded-lg">
+                        <div :class="notification.type === 'alert' ? 'bg-red-100 text-red-600' : notification.type === 'vault' ? 'bg-green-100 text-green-600' : 'bg-purple-100 text-purple-600'"
+                             class="w-8 h-8 rounded-full flex items-center justify-center">
+                            <i :class="notification.icon" class="text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900" x-text="notification.title"></p>
+                            <p class="text-xs text-gray-600" x-text="notification.message"></p>
+                            <p class="text-xs text-gray-400 mt-1" x-text="notification.time"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function vitalCoreApp() {
+            return {
+                currentView: 'dashboard',
+                showNotifications: false,
+                brainInput: '',
+                
+                // Platform stats
+                stats: {
+                    secureRecords: 1247893,
+                    aiInteractions: 45632,
+                    activePatients: 12847
+                },
+
+                // MedVault data
+                vault: {
+                    totalRecords: 1247893,
+                    encryptedData: '2.3TB',
+                    backups: 365,
+                    breaches: 0
+                },
+
+                // Analytics data
+                analytics: {
+                    riskPredictions: 247,
+                    costSavings: '$2.4M',
+                    qualityScore: 94.2,
+                    efficiency: 87.3
+                },
+
+                // MedBrain messages
+                brainMessages: [
+                    {
+                        id: 1,
+                        sender: 'ai',
+                        content: 'Hello! I\'m MedBrain, your clinical AI assistant. I can help with diagnosis, treatment planning, drug interactions, and clinical guidelines. What would you like to discuss?',
+                        timestamp: '10:30 AM'
+                    }
+                ],
+
+                // Vault access logs
+                vaultLogs: [
+                    {
+                        id: 1,
+                        timestamp: '2024-01-15 10:45:23',
+                        user: 'Dr. Sarah Chen',
+                        patientId: 'PT-12847',
+                        dataType: 'Lab Results'
+                    },
+                    {
+                        id: 2,
+                        timestamp: '2024-01-15 10:42:15',
+                        user: 'Nurse Johnson',
+                        patientId: 'PT-12845',
+                        dataType: 'Immunization Record'
+                    },
+                    {
+                        id: 3,
+                        timestamp: '2024-01-15 10:38:07',
+                        user: 'Dr. Martinez',
+                        patientId: 'PT-12843',
+                        dataType: 'Medical History'
+                    }
+                ],
+
+                // Notifications
+                notifications: [
+                    {
+                        id: 1,
+                        type: 'brain',
+                        icon: 'fas fa-brain',
+                        title: 'MedBrain Analysis Complete',
+                        message: 'Risk assessment for Patient #12847 shows elevated diabetes risk',
+                        time: '2 mins ago'
+                    },
+                    {
+                        id: 2,
+                        type: 'vault',
+                        icon: 'fas fa-shield-alt',
+                        title: 'MedVault Security Scan',
+                        message: 'Daily security audit completed - All systems secure',
+                        time: '1 hour ago'
+                    },
+                    {
+                        id: 3,
+                        type: 'alert',
+                        icon: 'fas fa-exclamation-triangle',
+                        title: 'System Alert',
+                        message: 'Unusual access pattern detected - Automatically blocked',
+                        time: '3 hours ago'
+                    }
+                ],
+
+                // Methods
+                sendBrainMessage() {
+                    if (this.brainInput.trim()) {
+                        this.brainMessages.push({
+                            id: Date.now(),
+                            sender: 'user',
+                            content: this.brainInput,
+                            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                        });
+
+                        setTimeout(() => {
+                            this.brainMessages.push({
+                                id: Date.now() + 1,
+                                sender: 'ai',
+                                content: 'Based on the clinical data and current guidelines, I recommend reviewing the patient\'s HbA1c levels and considering metformin as first-line treatment. The risk stratification model suggests close monitoring for diabetic complications.',
+                                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                            });
+                        }, 1000);
+
+                        this.brainInput = '';
+                    }
+                }
+            }
+        }
+
+        // VitalCore API Integration
+        const VITALCORE_API = {
+            base: 'http://localhost:8000/api/v1',
+            
+            // Dashboard endpoints
+            dashboard: {
+                getStats: () => fetch(`${VITALCORE_API.base}/dashboard/stats`),
+                getHealth: () => fetch(`${VITALCORE_API.base}/health`)
+            },
+            
+            // MedVault endpoints
+            vault: {
+                getAuditLogs: () => fetch(`${VITALCORE_API.base}/audit-logs/logs`),
+                getSecurityMetrics: () => fetch(`${VITALCORE_API.base}/security/metrics`)
+            },
+            
+            // MedBrain endpoints
+            brain: {
+                sendMessage: (message) => fetch(`${VITALCORE_API.base}/ai/gemma/clinical-analysis`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: message })
+                }),
+                getModels: () => fetch(`${VITALCORE_API.base}/ai/models/status`)
+            },
+            
+            // Analytics endpoints
+            analytics: {
+                getPopulationHealth: () => fetch(`${VITALCORE_API.base}/analytics/population/metrics`),
+                getRiskAnalysis: () => fetch(`${VITALCORE_API.base}/analytics/risk/distribution`)
+            }
+        };
+    </script>
+</body>
+</html>

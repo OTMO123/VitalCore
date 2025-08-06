@@ -1,0 +1,135 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+data/*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+
+# Docker
+docker-compose.override.yml
+
+# Testing
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.cache
+
+# Data
+data/backups/*.sql
+data/exports/*.csv
+data/exports/*.json
+!data/exports/.gitkeep
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Archive (old files - can be deleted)
+_archive/
+
+# Sensitive files
+*.key
+*.pem
+*.p12
+secrets/
+credentials/
+
+# MinIO storage (when implemented)
+storage/
+minio-data/
+
+# Application specific
+backend.log
+soc2_test_results.json
+audit_*.json
+
+# Documentation and reports - NOT for GitHub competition
+reports/
+docs/
+*.md
+!README.md
+
+# Trash files - NOT for GitHub
+=*
+C:*
+*.jpg
+*.jpeg
+*.png
+photo_*
+*.zip
+*.ps1
+*.bat
+*test*.py
+!app/tests/
+!**/tests/
+test_fixes*.py
+*.bak
+*backup*
+backups/

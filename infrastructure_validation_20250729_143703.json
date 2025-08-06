@@ -1,0 +1,81 @@
+﻿{
+    "summary":  {
+                    "failed":  2,
+                    "skipped":  2,
+                    "total":  11,
+                    "passed":  7
+                },
+    "timestamp":  "20250729_143703",
+    "issues":  [
+                   "Application health endpoint not accessible",
+                   "Healthcare API endpoint not accessible"
+               ],
+    "tests":  [
+                  {
+                      "Status":  "PASS",
+                      "Details":  "TCP connection successful",
+                      "Service":  "PostgreSQL",
+                      "ResponseTime":  "less than 5 seconds"
+                  },
+                  {
+                      "Status":  "SKIP",
+                      "Details":  "psql command not found",
+                      "Service":  "Database Query",
+                      "ResponseTime":  "N/A"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Details":  "TCP connection successful",
+                      "Service":  "Redis",
+                      "ResponseTime":  "less than 5 seconds"
+                  },
+                  {
+                      "Status":  "SKIP",
+                      "Details":  "redis-cli command not found",
+                      "Service":  "Redis Commands",
+                      "ResponseTime":  "N/A"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Details":  "HTTP Status: 200",
+                      "Service":  "MinIO",
+                      "ResponseTime":  "less than 10 seconds"
+                  },
+                  {
+                      "Status":  "FAIL",
+                      "Details":  "Базовое соединение закрыто: Соединение было неожиданно закрыто.",
+                      "Service":  "Application Health",
+                      "ResponseTime":  "N/A"
+                  },
+                  {
+                      "Status":  "FAIL",
+                      "Details":  "Базовое соединение закрыто: Соединение было неожиданно закрыто.",
+                      "Service":  "Healthcare API",
+                      "ResponseTime":  "N/A"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Details":  "DNS lookup successful",
+                      "Service":  "DNS Resolution",
+                      "ResponseTime":  "less than 2 seconds"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Details":  "External HTTP request successful",
+                      "Service":  "Internet Connectivity",
+                      "ResponseTime":  "less than 5 seconds"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Details":  "Docker version 28.0.4, build b8034c0",
+                      "Service":  "Docker",
+                      "ResponseTime":  "less than 2 seconds"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Details":  "Docker daemon accessible",
+                      "Service":  "Docker Daemon",
+                      "ResponseTime":  "less than 3 seconds"
+                  }
+              ]
+}

@@ -1,0 +1,189 @@
+# 🏥 Orthanc DICOM Server - Docker Compose Configuration
+# Phase 1: Foundation Infrastructure Setup
+# Security: CVE-2025-0896 mitigation included
+
+version: '3.8'
+
+services:
+  # Orthanc DICOM Server with PostgreSQL backend
+  orthanc:
+    image: osimis/orthanc:24.7.3
+    container_name: iris_orthanc_dicom
+    ports:
+      - "8042:8042"  # HTTP REST API
+      - "4242:4242"  # DICOM protocol
+    environment:
+      # Security Configuration (CVE-2025-0896 fix)
+      - ORTHANC__AUTHENTICATION_ENABLED=true
+      - ORTHANC__REGISTERED_USERS={"admin":"admin123","iris_api":"secure_iris_key_2024"}
+      - ORTHANC__REMOTE_ACCESS_ALLOWED=false
+      - ORTHANC__HTTP_VERBOSE=false
+      
+      # PostgreSQL Database Configuration
+      - ORTHANC__POSTGRESQL__HOST=postgres_orthanc
+      - ORTHANC__POSTGRESQL__PORT=5432
+      - ORTHANC__POSTGRESQL__DATABASE=orthanc_db
+      - ORTHANC__POSTGRESQL__USERNAME=orthanc_user
+      - ORTHANC__POSTGRESQL__PASSWORD=orthanc_secure_password_2024
+      - ORTHANC__POSTGRESQL__ENABLE_STORAGE=true
+      - ORTHANC__POSTGRESQL__ENABLE_INDEX=true
+      
+      # DICOM Configuration
+      - ORTHANC__DICOM_AET=IRIS_ORTHANC
+      - ORTHANC__DICOM_CHECK_MODALITY_HOST=false
+      - ORTHANC__DICOM_PORT=4242
+      
+      # Security Settings
+      - ORTHANC__SSL_ENABLED=false  # Will be handled by reverse proxy
+      - ORTHANC__HTTP_TIMEOUT=60
+      - ORTHANC__HTTP_REQUEST_TIMEOUT=60
+      
+      # Storage Configuration
+      - ORTHANC__STORAGE_AREA=/var/lib/orthanc/db
+      - ORTHANC__STORAGE_COMPRESSION=false
+      - ORTHANC__MAXIMUM_STORAGE_SIZE=0  # Unlimited
+      
+      # Logging
+      - ORTHANC__HTTP_VERBOSE=false
+      - ORTHANC__VERBOSE_STARTUP=true
+      
+    volumes:
+      - orthanc_storage:/var/lib/orthanc/db
+      - ./orthanc-config:/etc/orthanc:ro
+      - orthanc_logs:/var/log/orthanc
+    depends_on:
+      postgres_orthanc:
+        condition: service_healthy
+    networks:
+      - iris_healthcare_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8042/system"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL Database for Orthanc
+  postgres_orthanc:
+    image: postgres:15-alpine
+    container_name: iris_postgres_orthanc
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    environment:
+      - POSTGRES_DB=orthanc_db
+      - POSTGRES_USER=orthanc_user
+      - POSTGRES_PASSWORD=orthanc_secure_password_2024
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
+    volumes:
+      - postgres_orthanc_data:/var/lib/postgresql/data
+      - ./orthanc-sql:/docker-entrypoint-initdb.d:ro
+    networks:
+      - iris_healthcare_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orthanc_user -d orthanc_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO Object Storage for Non-DICOM Documents
+  minio:
+    image: minio/minio:latest
+    container_name: iris_minio_storage
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    environment:
+      - MINIO_ROOT_USER=iris_minio_admin
+      - MINIO_ROOT_PASSWORD=iris_secure_minio_password_2024
+      - MINIO_SERVER_URL=http://localhost:9000
+      - MINIO_BROWSER_REDIRECT_URL=http://localhost:9001
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+      - minio_config:/root/.minio
+    networks:
+      - iris_healthcare_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Redis for Caching and Session Management
+  redis:
+    image: redis:7-alpine
+    container_name: iris_redis_cache
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass iris_redis_password_2024 --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - iris_healthcare_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Orthanc PostgreSQL Plugin Setup (if needed)
+  orthanc_setup:
+    image: alpine:latest
+    container_name: iris_orthanc_setup
+    volumes:
+      - ./scripts/orthanc:/scripts:ro
+    depends_on:
+      postgres_orthanc:
+        condition: service_healthy
+    networks:
+      - iris_healthcare_network
+    command: >
+      sh -c "
+        echo 'Setting up Orthanc PostgreSQL tables...'
+        apk add --no-cache postgresql-client
+        sleep 10
+        echo 'Orthanc setup completed'
+      "
+
+# Volumes for persistent data
+volumes:
+  orthanc_storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/orthanc/storage
+  orthanc_logs:
+    driver: local
+  postgres_orthanc_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/orthanc/postgres
+  minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/minio/storage
+  minio_config:
+    driver: local
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+
+# Network for service communication
+networks:
+  iris_healthcare_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

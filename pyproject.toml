@@ -1,0 +1,322 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iris-api-integration"
+description = "IRIS API Integration System with SOC2 Compliance"
+authors = [{name = "Development Team", email = "dev@company.com"}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: FastAPI",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "sqlalchemy>=2.0.23",
+    "psycopg2-binary>=2.9.9",
+    "alembic>=1.13.1",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.6",
+    "cryptography>=41.0.8",
+    "httpx>=0.25.2",
+    "aiohttp>=3.9.1",
+    "celery>=5.3.4",
+    "redis>=5.0.1",
+    "croniter>=2.0.1",
+    "structlog>=23.2.0",
+    "rich>=13.7.0",
+    "email-validator>=2.1.0",
+    "python-dateutil>=2.8.2",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "pytest-timeout>=2.2.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-benchmark>=4.0.0",
+    "pytest-html>=4.1.1",
+    "pytest-sugar>=0.9.7",
+    "pytest-clarity>=1.0.1",
+    "faker>=20.1.0",
+    "factory-boy>=3.3.0",
+    "httpx>=0.25.2",
+    "fakeredis>=2.20.1",
+    "testcontainers>=3.7.1",
+    "aiosqlite>=0.19.0",  # For SQLite async testing
+    "coverage>=7.3.2",
+]
+
+dev = [
+    "black>=23.12.0",
+    "isort>=5.13.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.6.0",
+    "bandit>=1.7.5",
+    "safety>=2.3.4",
+    "ruff>=0.1.7",
+]
+
+security = [
+    "bandit>=1.7.5",
+    "safety>=2.3.4",
+    "semgrep>=1.45.0",
+]
+
+performance = [
+    "locust>=2.17.0",
+    "pytest-benchmark>=4.0.0",
+    "memory-profiler>=0.61.0",
+    "py-spy>=0.3.14",
+]
+
+docs = [
+    "mkdocs>=1.5.3",
+    "mkdocs-material>=9.4.8",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+all = [
+    "iris-api-integration[test,dev,security,performance,docs]"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/company/iris-api-integration"
+"Bug Tracker" = "https://github.com/company/iris-api-integration/issues"
+"Documentation" = "https://iris-api-integration.readthedocs.io/"
+
+[project.scripts]
+iris-api = "app.main:main"
+
+# ==================== Tool Configurations ====================
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["app/tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+    "--tb=short",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml:coverage.xml",
+    "--cov-fail-under=80",
+    "--no-cov-on-fail",
+    "--durations=10",
+    "--asyncio-mode=auto",
+]
+
+markers = [
+    "unit: Unit tests (fast, isolated, no external dependencies)",
+    "integration: Integration tests (database, external APIs, services)",
+    "security: Security and authentication tests",
+    "performance: Performance and load tests",
+    "slow: Tests that take a long time to run",
+    "api: API endpoint tests",
+    "database: Database-related tests",
+    "event_bus: Event bus and messaging tests",
+    "iris_api: IRIS API integration tests",
+    "auth: Authentication and authorization tests",
+    "audit: Audit logging tests",
+    "purge: Data purge and retention tests",
+    "smoke: Smoke tests for basic functionality",
+    "regression: Regression tests",
+    "e2e: End-to-end tests",
+    "mock: Tests using mocked dependencies",
+    "real: Tests using real external services (use sparingly)",
+    "requires_db: Tests requiring database",
+    "requires_redis: Tests requiring Redis",
+    "requires_containers: Tests requiring test containers",
+]
+
+norecursedirs = [
+    ".git",
+    ".tox",
+    "dist",
+    "build",
+    "*.egg",
+    "__pycache__",
+    ".pytest_cache",
+    "htmlcov",
+    ".venv",
+    "venv",
+    "node_modules",
+]
+
+asyncio_mode = "auto"
+timeout = 300
+timeout_method = "thread"
+
+filterwarnings = [
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "error::RuntimeWarning",
+]
+
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+junit_family = "xunit2"
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/tests/*",
+    "app/__pycache__/*",
+    "app/*/__pycache__/*",
+    "app/*/migrations/*",
+    "*/venv/*",
+    "*/virtualenv/*",
+    ".venv/*",
+    ".tox/*",
+    "*/site-packages/*",
+    "setup.py",
+    "conftest.py",
+    "app/main.py",
+]
+branch = true
+parallel = true
+data_file = ".coverage"
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+skip_empty = false
+sort = "Cover"
+fail_under = 80
+
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+    "def __repr__",
+    "if self\\.debug:",
+    "if TYPE_CHECKING:",
+    "logger\\.debug",
+    "logger\\.info",
+    "pass",
+    "\\.\\.\\.",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+title = "IRIS API Integration System - Test Coverage Report"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.coverage.json]
+output = "coverage.json"
+pretty_print = true
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
+src_paths = ["app", "tests"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "celery.*",
+    "redis.*",
+    "fakeredis.*",
+    "testcontainers.*",
+    "factory_boy.*",
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "app/tests"]
+skips = ["B101", "B601"]  # Skip assert_used and shell_injection for tests
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"app/tests/*" = ["S101"]  # Allow asserts in tests

@@ -1,0 +1,73 @@
+📊 HEALTHCARE API PERFORMANCE TEST REPORT
+============================================================
+Test Date: 2025-07-28T13:48:09.837684
+Environment: production_load_simulation
+
+📈 SEQUENTIAL TEST
+  Total Requests: 50
+  Successful: 50
+  Failed: 0
+  Average Response Time: 35.18ms
+  95th Percentile: 39.65ms
+  Max Response Time: 40.02ms
+  Throughput: 28.4 req/s
+  Status: ✅ EXCELLENT
+
+📈 CONCURRENT LIGHT TEST
+  Total Requests: 30
+  Successful: 30
+  Failed: 0
+  Average Response Time: 55.07ms
+  95th Percentile: 59.45ms
+  Max Response Time: 59.55ms
+  Throughput: 130.8 req/s
+  Error Rate: 0.0%
+  Status: ✅ EXCELLENT
+
+📈 CONCURRENT MEDIUM TEST
+  Total Requests: 100
+  Successful: 100
+  Failed: 0
+  Average Response Time: 42.70ms
+  95th Percentile: 59.36ms
+  Max Response Time: 59.59ms
+  Throughput: 464.1 req/s
+  Error Rate: 0.0%
+  Status: ✅ EXCELLENT
+
+📈 CONCURRENT HEAVY TEST
+  Total Requests: 150
+  Successful: 150
+  Failed: 0
+  Average Response Time: 55.20ms
+  95th Percentile: 59.59ms
+  Max Response Time: 60.32ms
+  Throughput: 284.4 req/s
+  Error Rate: 0.0%
+  Status: ✅ EXCELLENT
+
+📈 SUSTAINED TEST
+  Total Requests: 300
+  Successful: 300
+  Failed: 0
+  Average Response Time: 24.96ms
+  95th Percentile: 29.59ms
+  Max Response Time: 30.03ms
+  Actual Throughput: 15.0 req/s
+  Error Rate: 0.0%
+  Status: ✅ EXCELLENT
+
+🎯 OVERALL ASSESSMENT
+  Result: ✅ ALL TESTS PASSED
+  System Performance: READY FOR PRODUCTION
+  The healthcare API demonstrates excellent performance
+  characteristics under various load conditions.
+
+💡 PERFORMANCE RECOMMENDATIONS
+  • Monitor response times in production
+  • Set up alerts for error rates > 1%
+  • Implement gradual load increase
+  • Regular performance testing
+
+============================================================
+Report generated: 2025-07-28 13:48:32

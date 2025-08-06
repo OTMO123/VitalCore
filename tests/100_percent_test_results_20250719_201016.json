@@ -1,0 +1,219 @@
+{
+  "success": false,
+  "total_tests": 26,
+  "passed_tests": 21,
+  "failed_tests": 5,
+  "success_rate": 80.76923076923077,
+  "critical_rate": 71.42857142857143,
+  "test_results": [
+    {
+      "name": "Root Health Check",
+      "category": "System",
+      "priority": "CRITICAL",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "OpenAPI Documentation",
+      "category": "System",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Authentication System",
+      "category": "Auth",
+      "priority": "CRITICAL",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Healthcare Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Audit Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Documents Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 500 - {'detail': 'Failed to retrieve document metadata'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Analytics Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Risk Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Purge Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "IRIS Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "List Patients",
+      "category": "Patient",
+      "priority": "CRITICAL",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Create Patient",
+      "category": "Patient",
+      "priority": "CRITICAL",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Get Patient by ID",
+      "category": "Patient",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Get failed: 500 - {'detail': 'Failed to retrieve patient'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Update Patient",
+      "category": "Patient",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Update failed: 500 - {'detail': 'Failed to update patient'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Stats",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Activities",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Alerts",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Performance Metrics",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Audit Statistics",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Audit Logs",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Failed: 500 - {'detail': 'Failed to retrieve audit logs'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Recent Activities",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Compliance Summary",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Invalid Patient Data Handling",
+      "category": "Error",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Non-existent Patient Handling",
+      "category": "Error",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Expected 404, got 500",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Unauthorized Access Handling",
+      "category": "Error",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    }
+  ],
+  "ready_for_frontend": false
+}

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HEMA3N - Symptom Input Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .recording-pulse {
+            animation: pulse 1s ease-in-out infinite;
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .confidence-bar {
+            transition: width 1s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-white min-h-screen">
+    <!-- Header -->
+    <header class="flex items-center justify-between p-6 border-b border-gray-100">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl font-medium text-gray-900">HEMA3N</h1>
+            <div class="flex items-center gap-1 text-sm text-gray-600">
+                <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Secure PHI</span>
+            </div>
+        </div>
+        <div class="text-sm text-gray-500">
+            Patient Portal
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="max-w-4xl mx-auto p-8">
+        <!-- Initial Input State -->
+        <div id="inputState" class="text-center space-y-8">
+            <div class="space-y-4">
+                <h2 class="text-3xl font-medium text-gray-900 mb-8">
+                    Describe your symptoms...
+                </h2>
+                
+                <!-- Text Input Area -->
+                <div class="relative">
+                    <textarea
+                        id="symptomsText"
+                        placeholder="Tell us what you're experiencing. Include when symptoms started, their severity, and any relevant details..."
+                        class="w-full h-40 p-6 text-lg border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    ></textarea>
+                    <!-- Recording Overlay -->
+                    <div id="recordingOverlay" class="absolute inset-0 bg-blue-50 rounded-lg hidden items-center justify-center">
+                        <div class="flex items-center gap-2 text-blue-600">
+                            <div class="w-3 h-3 bg-red-500 rounded-full recording-pulse"></div>
+                            <span class="text-lg">Recording...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Buttons -->
+            <div class="flex justify-center gap-6">
+                <button
+                    id="voiceBtn"
+                    class="flex items-center gap-3 px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-lg transition-colors"
+                >
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                    </svg>
+                    Voice Input
+                </button>
+                
+                <button
+                    id="photoBtn"
+                    class="flex items-center gap-3 px-8 py-4 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 text-lg rounded-lg transition-colors"
+                >
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    Photo
+                </button>
+            </div>
+
+            <!-- Analyze Button -->
+            <button
+                id="analyzeBtn"
+                class="px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-lg transition-colors hidden"
+            >
+                Analyze Symptoms
+            </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="text-center space-y-8 hidden">
+            <div class="relative w-32 h-32 mx-auto">
+                <div class="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent loading-spinner"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <h3 class="text-2xl font-medium text-gray-900">Analyzing securely...</h3>
+                <p class="text-gray-600">Our AI is reviewing your symptoms with medical-grade security</p>
+            </div>
+        </div>
+
+        <!-- Results State -->
+        <div id="resultsState" class="bg-white border border-gray-200 rounded-lg p-8 space-y-6 hidden">
+            <div class="space-y-4">
+                <h3 class="text-2xl font-medium text-gray-900">Analysis Results</h3>
+                
+                <!-- Confidence Bar -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Confidence Level</span>
+                        <span id="confidenceText" class="font-medium text-gray-900">87%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                            id="confidenceBar"
+                            class="h-3 rounded-full confidence-bar bg-green-500"
+                            style="width: 0%"
+                        ></div>
+                    </div>
+                </div>
+
+                <!-- Diagnosis -->
+                <div class="p-6 bg-gray-50 rounded-lg">
+                    <p id="diagnosisText" class="text-lg text-gray-900">
+                        Based on your symptoms, this appears to be related to cardiac strain. Immediate medical attention recommended.
+                    </p>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="space-y-3">
+                    <h4 class="text-lg font-medium text-gray-900">Recommendations</h4>
+                    <ul id="recommendationsList" class="space-y-2">
+                        <!-- Will be populated by JavaScript -->
+                    </ul>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-4 pt-4">
+                    <button
+                        id="consultBtn"
+                        class="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    >
+                        Turn Real - Consult Doctor
+                    </button>
+                    
+                    <button
+                        id="newAnalysisBtn"
+                        class="px-8 py-3 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                        New Analysis
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center pt-12 text-sm text-gray-500">
+            <div class="flex justify-center gap-6">
+                <button class="hover:text-gray-700 transition-colors">Language</button>
+                <button class="hover:text-gray-700 transition-colors">Settings</button>
+                <button class="hover:text-gray-700 transition-colors">Privacy</button>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Demo functionality
+        const symptomsText = document.getElementById('symptomsText');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const photoBtn = document.getElementById('photoBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const recordingOverlay = document.getElementById('recordingOverlay');
+        
+        const inputState = document.getElementById('inputState');
+        const loadingState = document.getElementById('loadingState');
+        const resultsState = document.getElementById('resultsState');
+        
+        const confidenceBar = document.getElementById('confidenceBar');
+        const consultBtn = document.getElementById('consultBtn');
+        const newAnalysisBtn = document.getElementById('newAnalysisBtn');
+
+        // Show analyze button when there's text
+        symptomsText.addEventListener('input', function() {
+            if (this.value.trim()) {
+                analyzeBtn.classList.remove('hidden');
+            } else {
+                analyzeBtn.classList.add('hidden');
+            }
+        });
+
+        // Voice input simulation
+        voiceBtn.addEventListener('click', function() {
+            recordingOverlay.classList.remove('hidden');
+            recordingOverlay.classList.add('flex');
+            voiceBtn.disabled = true;
+            
+            setTimeout(() => {
+                symptomsText.value = "I have been experiencing chest pain and shortness of breath for the past 2 days. The pain is sharp and occurs mostly when I exercise. I also feel dizzy sometimes.";
+                recordingOverlay.classList.add('hidden');
+                recordingOverlay.classList.remove('flex');
+                voiceBtn.disabled = false;
+                analyzeBtn.classList.remove('hidden');
+            }, 3000);
+        });
+
+        // Photo input simulation
+        photoBtn.addEventListener('click', function() {
+            const currentText = symptomsText.value;
+            symptomsText.value = currentText + (currentText ? ' ' : '') + '[Photo uploaded: skin_rash.jpg]';
+            analyzeBtn.classList.remove('hidden');
+        });
+
+        // Analysis simulation
+        analyzeBtn.addEventListener('click', function() {
+            inputState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            
+            setTimeout(() => {
+                loadingState.classList.add('hidden');
+                resultsState.classList.remove('hidden');
+                
+                // Animate confidence bar
+                setTimeout(() => {
+                    confidenceBar.style.width = '87%';
+                }, 100);
+                
+                // Populate recommendations
+                const recommendations = [
+                    "Seek immediate emergency care",
+                    "Monitor blood pressure",
+                    "Avoid physical exertion",
+                    "Take prescribed medications as directed"
+                ];
+                
+                const list = document.getElementById('recommendationsList');
+                list.innerHTML = recommendations.map(rec => `
+                    <li class="flex items-start gap-2">
+                        <div class="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
+                        <span class="text-gray-700">${rec}</span>
+                    </li>
+                `).join('');
+                
+            }, 4000);
+        });
+
+        // Doctor consultation
+        consultBtn.addEventListener('click', function() {
+            alert('Redirecting to doctor consultation booking...\n\nThis would integrate with telemedicine platform or booking system.');
+        });
+
+        // New analysis
+        newAnalysisBtn.addEventListener('click', function() {
+            symptomsText.value = '';
+            resultsState.classList.add('hidden');
+            inputState.classList.remove('hidden');
+            analyzeBtn.classList.add('hidden');
+            confidenceBar.style.width = '0%';
+        });
+    </script>
+</body>
+</html>

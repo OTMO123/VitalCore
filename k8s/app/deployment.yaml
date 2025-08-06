@@ -1,0 +1,407 @@
+---
+# Healthcare API Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthcare-api
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+    version: v1
+    component: backend
+    compliance: hipaa
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+  selector:
+    matchLabels:
+      app: healthcare-api
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: healthcare-api
+        version: v1
+        component: backend
+        compliance: hipaa
+      annotations:
+        # Istio sidecar injection
+        sidecar.istio.io/inject: "true"
+        # Vault agent injection
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "healthcare-api"
+        vault.hashicorp.com/agent-inject-secret-config: "healthcare-secrets/application/api"
+        vault.hashicorp.com/agent-inject-template-config: |
+          {{- with secret "healthcare-secrets/application/api" -}}
+          export SECRET_KEY="{{ .Data.data.SECRET_KEY }}"
+          export ENCRYPTION_KEY="{{ .Data.data.ENCRYPTION_KEY }}"
+          export ENCRYPTION_SALT="{{ .Data.data.ENCRYPTION_SALT }}"
+          {{- end }}
+        # Prometheus scraping
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8001"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: healthcare-api-sa
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: healthcare-api
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-role
+                operator: In
+                values: ["application"]
+      containers:
+      - name: healthcare-api
+        image: ghcr.io/your-org/healthcare-api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        - containerPort: 8001
+          name: metrics
+          protocol: TCP
+        env:
+        # Application Configuration
+        - name: ENVIRONMENT
+          value: "production"
+        - name: DEBUG
+          value: "false"
+        - name: LOG_LEVEL
+          value: "INFO"
+        
+        # Database Configuration
+        - name: DATABASE_URL
+          value: "postgresql+asyncpg://$(DB_USER):$(DB_PASSWORD)@postgres-cluster-rw.healthcare-database.svc.cluster.local:5432/iris_db?sslmode=require"
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: password
+        
+        # Redis Configuration
+        - name: REDIS_URL
+          value: "rediss://$(REDIS_PASSWORD)@redis-cluster.healthcare-api.svc.cluster.local:6380/0?ssl_cert_reqs=required&ssl_ca_certs=/tls/ca.crt&ssl_certfile=/tls/redis.crt&ssl_keyfile=/tls/redis.key"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        
+        # Security Configuration
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: SECRET_KEY
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: ENCRYPTION_KEY
+        - name: ENCRYPTION_SALT
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: ENCRYPTION_SALT
+        
+        # JWT Configuration
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jwt-signing-keys
+              key: JWT_SECRET_KEY
+        - name: JWT_ALGORITHM
+          value: "RS256"
+        - name: ACCESS_TOKEN_EXPIRE_MINUTES
+          value: "30"
+        
+        # IRIS API Configuration
+        - name: IRIS_API_BASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: iris-api-credentials
+              key: BASE_URL
+        - name: IRIS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: iris-api-credentials
+              key: API_KEY
+        - name: IRIS_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: iris-api-credentials
+              key: API_SECRET
+        
+        # MinIO Configuration
+        - name: MINIO_ENDPOINT
+          value: "minio.healthcare-api.svc.cluster.local:9000"
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: access_key
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: secret_key
+        - name: MINIO_SECURE
+          value: "true"
+        
+        # Compliance Configuration
+        - name: ENABLE_AUDIT_LOGGING
+          value: "true"
+        - name: ENABLE_PHI_ENCRYPTION
+          value: "true"
+        - name: ENABLE_SOC2_COMPLIANCE
+          value: "true"
+        - name: HIPAA_COMPLIANCE_MODE
+          value: "true"
+        - name: AUDIT_LOG_RETENTION_DAYS
+          value: "2555"  # 7 years
+        
+        # Performance Configuration
+        - name: API_RESPONSE_COMPRESSION
+          value: "true"
+        - name: API_CACHE_TTL_SECONDS
+          value: "300"
+        - name: DB_POOL_SIZE
+          value: "20"
+        - name: DB_POOL_MAX_OVERFLOW
+          value: "30"
+        - name: DB_POOL_RECYCLE
+          value: "3600"
+        
+        # Monitoring Configuration
+        - name: ENABLE_PERFORMANCE_MONITORING
+          value: "true"
+        - name: OTEL_ENABLED
+          value: "true"
+        - name: OTEL_SERVICE_NAME
+          value: "healthcare-api"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://jaeger-collector.healthcare-monitoring.svc.cluster.local:14268/api/traces"
+        - name: PROMETHEUS_ENABLED
+          value: "true"
+        - name: PROMETHEUS_PORT
+          value: "8001"
+        
+        # Security Headers
+        - name: SECURITY_HEADERS_ENABLED
+          value: "true"
+        - name: SECURITY_HEADER_HSTS_MAX_AGE
+          value: "31536000"
+        - name: SECURITY_HEADER_CSP_ENABLED
+          value: "true"
+        
+        volumeMounts:
+        - name: tls-certs
+          mountPath: /tls
+          readOnly: true
+        - name: app-config
+          mountPath: /app/config
+          readOnly: true
+        - name: temp-storage
+          mountPath: /tmp
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+            ephemeral-storage: "5Gi"
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 30
+          successThreshold: 1
+      
+      volumes:
+      - name: tls-certs
+        secret:
+          secretName: healthcare-api-tls
+      - name: app-config
+        configMap:
+          name: healthcare-api-config
+      - name: temp-storage
+        emptyDir:
+          sizeLimit: "1Gi"
+      
+      # Image pull secrets
+      imagePullSecrets:
+      - name: ghcr-secret
+      
+      # DNS configuration
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0
+      
+      # Termination grace period
+      terminationGracePeriodSeconds: 30
+---
+# Healthcare API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthcare-api
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+    service: healthcare-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: metrics
+  selector:
+    app: healthcare-api
+---
+# Application Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: healthcare-api-config
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+data:
+  app.yaml: |
+    # Healthcare API Configuration
+    application:
+      name: "IRIS Healthcare API"
+      version: "1.0.0"
+      description: "Enterprise Healthcare API with SOC2/HIPAA Compliance"
+    
+    security:
+      cors:
+        allowed_origins:
+          - "https://healthcare-ui.yourdomain.com"
+          - "https://admin.yourdomain.com"
+        allow_credentials: true
+        max_age: 86400
+      
+      rate_limiting:
+        requests_per_minute: 1000
+        burst_size: 100
+        
+    compliance:
+      soc2:
+        enabled: true
+        audit_retention_days: 2555
+        immutable_logs: true
+      hipaa:
+        enabled: true
+        phi_encryption: true
+        access_logging: true
+      fhir:
+        version: "R4"
+        validation: true
+        
+    performance:
+      connection_pool:
+        min_size: 10
+        max_size: 50
+        timeout: 30
+      cache:
+        default_ttl: 300
+        max_size: "1GB"
+      compression:
+        enabled: true
+        algorithm: "brotli"
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: healthcare-api-metrics
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-api
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    honorLabels: true

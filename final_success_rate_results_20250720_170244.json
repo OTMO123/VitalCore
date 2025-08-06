@@ -1,0 +1,82 @@
+﻿{
+    "timestamp":  "2025-07-20 17:02:44",
+    "target_rate":  87.5,
+    "passed_tests":  8,
+    "success_rate":  72.7,
+    "failed_tests":  [
+                         {
+                             "Test":  "Healthcare Health",
+                             "Status":  "FAIL",
+                             "Error":  "Удаленный сервер возвратил ошибку: (403) Запрещено."
+                         },
+                         {
+                             "Test":  "Get Individual Patient",
+                             "Status":  "FAIL",
+                             "Error":  "Удаленный сервер возвратил ошибку: (500) Внутренняя ошибка сервера."
+                         },
+                         {
+                             "Test":  "Dashboard",
+                             "Status":  "FAIL",
+                             "Error":  "Удаленный сервер возвратил ошибку: (404) Не найден."
+                         }
+                     ],
+    "total_tests":  11,
+    "target_achieved":  false,
+    "detailed_results":  [
+                             {
+                                 "Test":  "System Health",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             },
+                             {
+                                 "Test":  "Healthcare Health",
+                                 "Status":  "FAIL",
+                                 "Error":  "Удаленный сервер возвратил ошибку: (403) Запрещено."
+                             },
+                             {
+                                 "Test":  "Authentication",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             },
+                             {
+                                 "Test":  "Get Patients List",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             },
+                             {
+                                 "Test":  "Get Individual Patient",
+                                 "Status":  "FAIL",
+                                 "Error":  "Удаленный сервер возвратил ошибку: (500) Внутренняя ошибка сервера."
+                             },
+                             {
+                                 "Test":  "Update Patient",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             },
+                             {
+                                 "Test":  "Create Patient",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             },
+                             {
+                                 "Test":  "404 Error Handling",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             },
+                             {
+                                 "Test":  "Audit Logs",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             },
+                             {
+                                 "Test":  "Dashboard",
+                                 "Status":  "FAIL",
+                                 "Error":  "Удаленный сервер возвратил ошибку: (404) Не найден."
+                             },
+                             {
+                                 "Test":  "Document Health",
+                                 "Status":  "PASS",
+                                 "Error":  null
+                             }
+                         ]
+}

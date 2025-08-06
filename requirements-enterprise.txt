@@ -1,0 +1,43 @@
+# Enterprise Healthcare Platform Dependencies
+# Required for SOC2 Type II, HIPAA compliance, and production monitoring
+
+# OpenTelemetry Observability Stack
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-instrumentation>=0.41b0
+opentelemetry-instrumentation-fastapi>=0.41b0
+opentelemetry-instrumentation-sqlalchemy>=0.41b0
+opentelemetry-instrumentation-requests>=0.41b0
+opentelemetry-instrumentation-urllib3>=0.41b0
+opentelemetry-exporter-prometheus>=0.57b0
+opentelemetry-exporter-jaeger>=1.20.0
+opentelemetry-propagator-b3>=1.20.0
+
+# Performance Monitoring & Load Testing
+locust>=2.17.0
+memory-profiler>=0.61.0
+psutil>=5.9.0
+
+# Security & Geolocation
+geoip2>=4.7.0
+maxminddb>=2.2.0
+user-agents>=2.2.0
+mmh3>=4.0.0
+
+# File System Monitoring
+watchdog>=3.0.0
+
+# Compression & Performance
+brotli>=1.1.0
+
+# Cryptography (enterprise grade)
+pycryptodome>=3.19.0
+cryptography>=41.0.0
+passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
+
+# Structured Logging
+structlog>=23.2.0
+
+# Metrics Collection
+prometheus-client>=0.17.0

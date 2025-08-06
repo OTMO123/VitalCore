@@ -1,0 +1,173 @@
+---
+# Network Policy for Healthcare API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: healthcare-api-network-policy
+  namespace: healthcare-api
+spec:
+  podSelector:
+    matchLabels:
+      app: healthcare-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from Istio Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow ingress from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: healthcare-monitoring
+    ports:
+    - protocol: TCP
+      port: 8001  # Metrics port
+  egress:
+  # Allow egress to database
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: healthcare-database
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow egress to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis-cluster
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow egress to Vault
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: vault-system
+    ports:
+    - protocol: TCP
+      port: 8200
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow HTTPS outbound for external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# Network Policy for Database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: healthcare-database-network-policy
+  namespace: healthcare-database
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres-cluster
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Only allow ingress from healthcare-api namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: healthcare-api
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow ingress from monitoring for metrics
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: healthcare-monitoring
+    ports:
+    - protocol: TCP
+      port: 9187  # postgres_exporter port
+  # Allow ingress within database namespace for clustering
+  - from:
+    - podSelector:
+        matchLabels:
+          app: postgres-cluster
+    ports:
+    - protocol: TCP
+      port: 5432
+  egress:
+  # Allow egress to backup storage
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+---
+# Network Policy for Redis Cluster
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-cluster-network-policy
+  namespace: healthcare-api
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-cluster
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from healthcare API
+  - from:
+    - podSelector:
+        matchLabels:
+          app: healthcare-api
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow ingress from monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: healthcare-monitoring
+    ports:
+    - protocol: TCP
+      port: 9121  # redis_exporter port
+  # Allow cluster communication
+  - from:
+    - podSelector:
+        matchLabels:
+          app: redis-cluster
+    ports:
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 16379  # cluster bus port
+  egress:
+  # Allow cluster communication
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis-cluster
+    ports:
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 16379
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53

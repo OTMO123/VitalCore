@@ -1,0 +1,81 @@
+{
+  "test_timestamp": "2025-07-28T13:48:09.837684",
+  "test_environment": "production_load_simulation",
+  "tests": {
+    "sequential": {
+      "test_name": "sequential_requests",
+      "total_requests": 50,
+      "successful_requests": 50,
+      "failed_requests": 0,
+      "total_duration_seconds": 1.7630467414855957,
+      "requests_per_second": 28.359996830185292,
+      "avg_response_time_ms": 35.177645683288574,
+      "min_response_time_ms": 30.193805694580078,
+      "max_response_time_ms": 40.016889572143555,
+      "median_response_time_ms": 35.38870811462402,
+      "p95_response_time_ms": 39.64889049530029
+    },
+    "concurrent_light": {
+      "test_name": "concurrent_requests",
+      "concurrent_users": 10,
+      "requests_per_user": 3,
+      "total_requests": 30,
+      "successful_requests": 30,
+      "failed_requests": 0,
+      "total_duration_seconds": 0.22941184043884277,
+      "requests_per_second": 130.76918759996383,
+      "avg_response_time_ms": 55.06731669108073,
+      "min_response_time_ms": 50.53281784057617,
+      "max_response_time_ms": 59.54861640930176,
+      "median_response_time_ms": 55.18186092376709,
+      "p95_response_time_ms": 59.44633483886719,
+      "error_rate_percent": 0.0
+    },
+    "concurrent_medium": {
+      "test_name": "concurrent_requests",
+      "concurrent_users": 25,
+      "requests_per_user": 4,
+      "total_requests": 100,
+      "successful_requests": 100,
+      "failed_requests": 0,
+      "total_duration_seconds": 0.21545004844665527,
+      "requests_per_second": 464.14470881290924,
+      "avg_response_time_ms": 42.69920110702515,
+      "min_response_time_ms": -192.95740127563477,
+      "max_response_time_ms": 59.58724021911621,
+      "median_response_time_ms": 54.65984344482422,
+      "p95_response_time_ms": 59.362053871154785,
+      "error_rate_percent": 0.0
+    },
+    "concurrent_heavy": {
+      "test_name": "concurrent_requests",
+      "concurrent_users": 50,
+      "requests_per_user": 3,
+      "total_requests": 150,
+      "successful_requests": 150,
+      "failed_requests": 0,
+      "total_duration_seconds": 0.5274529457092285,
+      "requests_per_second": 284.3855574610654,
+      "avg_response_time_ms": 55.20179271697998,
+      "min_response_time_ms": 50.30536651611328,
+      "max_response_time_ms": 60.32252311706543,
+      "median_response_time_ms": 55.38666248321533,
+      "p95_response_time_ms": 59.59479808807373,
+      "error_rate_percent": 0.0
+    },
+    "sustained": {
+      "test_name": "sustained_load",
+      "duration_seconds": 20,
+      "target_rps": 15,
+      "total_requests": 300,
+      "successful_requests": 300,
+      "failed_requests": 0,
+      "actual_rps": 15.0,
+      "avg_response_time_ms": 24.962427616119385,
+      "min_response_time_ms": 20.122766494750977,
+      "max_response_time_ms": 30.03215789794922,
+      "p95_response_time_ms": 29.593229293823242,
+      "error_rate_percent": 0.0
+    }
+  }
+}

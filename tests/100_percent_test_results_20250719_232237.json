@@ -1,0 +1,203 @@
+{
+  "success": false,
+  "total_tests": 24,
+  "passed_tests": 6,
+  "failed_tests": 18,
+  "success_rate": 25.0,
+  "critical_rate": 60.0,
+  "test_results": [
+    {
+      "name": "Root Health Check",
+      "category": "System",
+      "priority": "CRITICAL",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "OpenAPI Documentation",
+      "category": "System",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Authentication System",
+      "category": "Auth",
+      "priority": "CRITICAL",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Healthcare Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Audit Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Documents Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Analytics Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Risk Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Purge Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "IRIS Health",
+      "category": "Health",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Health check failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "List Patients",
+      "category": "Patient",
+      "priority": "CRITICAL",
+      "status": "FAIL",
+      "error": "List failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Create Patient",
+      "category": "Patient",
+      "priority": "CRITICAL",
+      "status": "FAIL",
+      "error": "Create failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Stats",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Activities",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Dashboard Alerts",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Performance Metrics",
+      "category": "Dashboard",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Audit Statistics",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Audit Logs",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Recent Activities",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Compliance Summary",
+      "category": "Audit",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Failed: 401 - {'detail': 'Could not validate credentials'}",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Invalid Patient Data Handling",
+      "category": "Error",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Expected 422, got 401",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Non-existent Patient Handling",
+      "category": "Error",
+      "priority": "HIGH",
+      "status": "FAIL",
+      "error": "Expected 404, got 401",
+      "execution_time": 0.0
+    },
+    {
+      "name": "Unauthorized Access Handling",
+      "category": "Error",
+      "priority": "HIGH",
+      "status": "PASS",
+      "error": "",
+      "execution_time": 0.0
+    }
+  ],
+  "ready_for_frontend": false
+}

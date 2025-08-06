@@ -1,0 +1,222 @@
+---
+# PostgreSQL Cluster with High Availability
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-cluster
+  namespace: healthcare-database
+  labels:
+    app: postgres-cluster
+    component: database
+    compliance: hipaa
+spec:
+  instances: 3
+  
+  # Primary instance configuration
+  primaryUpdateStrategy: unsupervised
+  
+  # PostgreSQL configuration optimized for healthcare workloads
+  postgresql:
+    parameters:
+      # Connection settings
+      max_connections: "400"
+      superuser_reserved_connections: "10"
+      
+      # Memory settings
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      
+      # WAL settings for high availability
+      wal_level: "replica"
+      max_wal_senders: "10"
+      max_replication_slots: "10"
+      hot_standby: "on"
+      hot_standby_feedback: "on"
+      
+      # Performance optimization
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      min_wal_size: "1GB"
+      max_wal_size: "4GB"
+      
+      # Parallel processing
+      max_worker_processes: "8"
+      max_parallel_workers_per_gather: "4"
+      max_parallel_workers: "8"
+      max_parallel_maintenance_workers: "4"
+      
+      # Logging configuration for HIPAA compliance
+      log_destination: "stderr"
+      logging_collector: "on"
+      log_directory: "log"
+      log_filename: "postgresql-%Y-%m-%d_%H%M%S.log"
+      log_statement: "all"
+      log_connections: "on"
+      log_disconnections: "on"
+      log_lock_waits: "on"
+      log_temp_files: "0"
+      log_checkpoints: "on"
+      log_autovacuum_min_duration: "0"
+      
+      # Security settings
+      ssl: "on"
+      ssl_prefer_server_ciphers: "on"
+      ssl_min_protocol_version: "TLSv1.2"
+      password_encryption: "scram-sha-256"
+      
+      # Data protection
+      row_security: "on"
+      track_commit_timestamp: "on"
+      
+  # Bootstrap configuration
+  bootstrap:
+    initdb:
+      database: iris_db
+      owner: postgres
+      secret:
+        name: postgres-credentials
+      options:
+        - "--auth=scram-sha-256"
+        - "--auth-host=scram-sha-256"
+        - "--locale=C"
+        - "--encoding=UTF8"
+        - "--data-checksums"
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+        - CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+        - CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+        - CREATE EXTENSION IF NOT EXISTS "btree_gin";
+        - CREATE EXTENSION IF NOT EXISTS "btree_gist";
+        - ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';
+  
+  # Storage configuration
+  storage:
+    size: 1Ti
+    storageClass: fast-ssd-encrypted
+    
+  # Monitoring configuration
+  monitoring:
+    enabled: true
+    
+  # Backup configuration for compliance
+  backup:
+    retentionPolicy: "2555d"  # 7 years for HIPAA compliance
+    barmanObjectStore:
+      destinationPath: "s3://healthcare-backups/postgres"
+      s3Credentials:
+        accessKeyId:
+          name: backup-credentials
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: backup-credentials
+          key: SECRET_ACCESS_KEY
+        region:
+          name: backup-credentials
+          key: REGION
+      wal:
+        retention: "30d"
+        maxParallel: 8
+      data:
+        compression: "gzip"
+        encryption: "AES256"
+        immediateCheckpoint: true
+      endpointURL: "https://s3.amazonaws.com"
+      
+  # Resource requirements
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "1000m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+      
+  # Node affinity for database nodes
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role
+            operator: In
+            values: ["database"]
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: postgres-cluster
+          topologyKey: kubernetes.io/hostname
+  
+  # Service account
+  serviceAccountName: healthcare-db-sa
+  
+  # Security context
+  securityContext:
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    runAsNonRoot: true
+    
+---
+# PostgreSQL Service for read replicas
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-cluster-ro
+  namespace: healthcare-database
+  labels:
+    app: postgres-cluster
+    service-type: readonly
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    cnpg.io/cluster: postgres-cluster
+    role: replica
+---
+# PostgreSQL Service for primary
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-cluster-rw
+  namespace: healthcare-database
+  labels:
+    app: postgres-cluster
+    service-type: readwrite
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+  selector:
+    cnpg.io/cluster: postgres-cluster
+    role: primary
+---
+# ServiceMonitor for PostgreSQL monitoring
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-cluster-metrics
+  namespace: healthcare-database
+  labels:
+    app: postgres-cluster
+spec:
+  selector:
+    matchLabels:
+      app: postgres-cluster
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics

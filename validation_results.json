@@ -1,0 +1,51 @@
+{
+  "timestamp": "2025-07-23T03:54:12.694605",
+  "tests": [
+    {
+      "test": "Health Check",
+      "status": "PASS",
+      "response_time_ms": 2072.042942047119,
+      "data": {
+        "status": "healthy",
+        "mode": "demo",
+        "timestamp": "2025-07-23",
+        "services": {
+          "api": "running",
+          "security": "active",
+          "compliance": "validated"
+        }
+      }
+    },
+    {
+      "test": "Root API",
+      "status": "PASS",
+      "response_time_ms": 2056.006669998169,
+      "data": {
+        "message": "\ud83c\udfe5 IRIS Healthcare API - Ready for Gemma 3n Competition!",
+        "status": "demo_mode",
+        "compliance": [
+          "SOC2_Type_II",
+          "HIPAA",
+          "FHIR_R4"
+        ],
+        "security": "enterprise_grade",
+        "ai_ready": true,
+        "competition_ready": "90%"
+      }
+    },
+    {
+      "test": "API Documentation",
+      "status": "PASS"
+    },
+    {
+      "test": "Demo Documentation",
+      "status": "PASS"
+    }
+  ],
+  "summary": {
+    "total_tests": 4,
+    "passed": 4,
+    "failed": 0,
+    "success_rate": 100.0
+  }
+}

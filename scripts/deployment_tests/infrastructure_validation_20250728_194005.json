@@ -1,0 +1,17 @@
+﻿{
+    "summary":  {
+                    "failed":  0,
+                    "skipped":  0,
+                    "total":  0,
+                    "passed":  0
+                },
+    "timestamp":  "20250728_194005",
+    "issues":  [
+                   "Application health endpoint not accessible",
+                   "Healthcare API endpoint not accessible",
+                   "Docker test failed: Элемент уже добавлен. Ключ в словаре: \"Status\"  Добавляемый ключ: \u0027Status\u0027"
+               ],
+    "tests":  [
+
+              ]
+}

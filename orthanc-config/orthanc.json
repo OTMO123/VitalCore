@@ -1,0 +1,120 @@
+{
+  // 🏥 Orthanc DICOM Server Configuration
+  // Security: CVE-2025-0896 mitigation applied
+  // Integration: IRIS Healthcare API system
+  
+  // Security Configuration (CRITICAL)
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "admin": "admin123",
+    "iris_api": "secure_iris_key_2024",
+    "research_user": "research_access_2024"
+  },
+  "RemoteAccessAllowed": false,
+  "HttpsVerifyPeers": true,
+  "SslEnabled": false,  // Handled by reverse proxy
+  "HttpVerbose": false,
+  
+  // Network Configuration
+  "HttpPort": 8042,
+  "DicomPort": 4242,
+  "DicomAet": "IRIS_ORTHANC",
+  "DicomCheckModalityHost": false,
+  
+  // Database Configuration (PostgreSQL)
+  "PostgreSQL": {
+    "EnableIndex": true,
+    "EnableStorage": true,
+    "Host": "postgres_orthanc",
+    "Port": 5432,
+    "Database": "orthanc_db",
+    "Username": "orthanc_user",
+    "Password": "orthanc_secure_password_2024",
+    "EnableSsl": false,
+    "MaximumConnectionRetries": 10,
+    "ConnectionRetryInterval": 5
+  },
+  
+  // Storage Configuration
+  "StorageArea": "/var/lib/orthanc/db",
+  "StorageCompression": false,
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0,
+  "MaximumStorageMode": "Recycle",
+  
+  // DICOM Configuration
+  "DefaultEncoding": "Latin1",
+  "AcceptedTransferSyntaxes": [
+    "1.2.840.10008.1.2",
+    "1.2.840.10008.1.2.1",
+    "1.2.840.10008.1.2.2",
+    "1.2.840.10008.1.2.4.50",
+    "1.2.840.10008.1.2.4.51",
+    "1.2.840.10008.1.2.4.57",
+    "1.2.840.10008.1.2.4.70"
+  ],
+  
+  // Security Headers
+  "HttpRequestTimeout": 60,
+  "HttpTimeout": 60,
+  "MaximumPduLength": 16384,
+  "UnknownSopClassAccepted": false,
+  
+  // Logging Configuration
+  "VerboseStartup": true,
+  "LogLevel": "default",
+  "LogFile": "/var/log/orthanc/orthanc.log",
+  
+  // REST API Configuration
+  "HttpCompressionEnabled": true,
+  "KeepAlive": true,
+  "MaximumConcurrentJobs": 2,
+  "ConcurrentJobs": 2,
+  
+  // HIPAA Compliance Settings
+  "StableAge": 60,
+  "StrictAetComparison": true,
+  "DicomCheckModalityHost": false,
+  "OverwriteInstances": false,
+  
+  // Research & AI Integration
+  "LuaScripts": [],
+  "Plugins": [
+    "/usr/share/orthanc/plugins"
+  ],
+  
+  // FHIR Integration Preparation
+  "DicomWeb": {
+    "Enable": false,
+    "Root": "/dicom-web/",
+    "EnableMetadata": true,
+    "StudiesMetadata": "MainDicomTags",
+    "SeriesMetadata": "MainDicomTags"
+  },
+  
+  // Audit Configuration for SOC2 Compliance
+  "UserMetadata": {
+    "CreationTime": "CreationTime",
+    "LastUpdate": "LastUpdate",
+    "AccessLog": "AccessLog"
+  },
+  
+  // Performance Configuration
+  "JobsHistorySize": 100,
+  "SaveJobs": true,
+  "MediaArchiveSize": 1,
+  
+  // Known DICOM Modalities (for security)
+  "DicomModalities": {
+    "iris_research": ["IRIS_RESEARCH", "127.0.0.1", 11112],
+    "iris_clinical": ["IRIS_CLINICAL", "127.0.0.1", 11113]
+  },
+  
+  // OrthancPeers for federation
+  "OrthancPeers": {},
+  
+  // Worklists configuration
+  "WorklistsPlugin": {
+    "Enable": false
+  }
+}

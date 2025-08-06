@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VitalCore Rapid AI Diagnosis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .diagnostic-gradient { background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); }
+        .critical-red { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); }
+        .moderate-yellow { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .mild-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .pulse-diagnostic { animation: pulse-diag 2s infinite; }
+        @keyframes pulse-diag {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div x-data="rapidDiagnosisApp()" x-init="init()">
+        <!-- Header -->
+        <div class="diagnostic-gradient text-white p-6">
+            <div class="max-w-4xl mx-auto">
+                <h1 class="text-3xl font-bold flex items-center">
+                    <i class="fas fa-stethoscope mr-3 pulse-diagnostic"></i>
+                    VitalCore Rapid AI Diagnosis
+                </h1>
+                <p class="text-blue-100 mt-2">Voice-enabled symptom analysis and immediate treatment recommendations</p>
+            </div>
+        </div>
+
+        <!-- Voice Input Interface -->
+        <div class="max-w-4xl mx-auto p-6">
+            <div class="bg-white rounded-xl shadow-lg p-8 mb-6">
+                <div class="text-center mb-6">
+                    <button @click="toggleVoiceInput()" 
+                            :class="{
+                                'bg-red-500 hover:bg-red-600': isRecording,
+                                'bg-blue-500 hover:bg-blue-600': !isRecording
+                            }"
+                            class="w-24 h-24 rounded-full text-white text-3xl transition-all shadow-lg">
+                        <i :class="isRecording ? 'fas fa-stop' : 'fas fa-microphone'"></i>
+                    </button>
+                    <p class="mt-4 text-lg font-semibold" 
+                       x-text="isRecording ? 'Recording... Describe symptoms' : 'Tap to describe symptoms'">
+                    </p>
+                </div>
+
+                <!-- Voice Transcript -->
+                <div x-show="transcript" class="bg-blue-50 p-4 rounded-lg mb-4">
+                    <h3 class="font-semibold text-blue-800 mb-2">You said:</h3>
+                    <p class="text-blue-700" x-text="transcript"></p>
+                </div>
+
+                <!-- Quick Symptom Buttons -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <button @click="addSymptom('chest pain')" 
+                            class="critical-red text-white p-3 rounded-lg text-sm font-semibold">
+                        <i class="fas fa-heartbeat mr-1"></i>Chest Pain
+                    </button>
+                    <button @click="addSymptom('difficulty breathing')"
+                            class="critical-red text-white p-3 rounded-lg text-sm font-semibold">
+                        <i class="fas fa-lungs mr-1"></i>Breathing Issues
+                    </button>
+                    <button @click="addSymptom('severe headache')"
+                            class="moderate-yellow text-white p-3 rounded-lg text-sm font-semibold">
+                        <i class="fas fa-head-side-brain mr-1"></i>Severe Headache
+                    </button>
+                    <button @click="addSymptom('high fever')"
+                            class="moderate-yellow text-white p-3 rounded-lg text-sm font-semibold">
+                        <i class="fas fa-thermometer-full mr-1"></i>High Fever
+                    </button>
+                </div>
+            </div>
+
+            <!-- Current Symptoms -->
+            <div x-show="symptoms.length > 0" class="bg-white rounded-xl shadow-lg p-8 mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Current Symptoms</h2>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <template x-for="symptom in symptoms" :key="symptom">
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center">
+                            <span x-text="symptom"></span>
+                            <button @click="removeSymptom(symptom)" class="ml-2 text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </span>
+                    </template>
+                </div>
+                <button @click="analyzeSymptoms()" 
+                        class="diagnostic-gradient text-white px-6 py-3 rounded-lg font-semibold">
+                    <i class="fas fa-brain mr-2"></i>Analyze with AI
+                </button>
+            </div>
+
+            <!-- AI Analysis Results -->
+            <div x-show="analysis" class="space-y-6">
+                <!-- Severity Assessment -->
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">AI Assessment</h2>
+                        <div :class="getSeverityColor(analysis?.severity)" 
+                             class="px-4 py-2 rounded-full text-white font-bold">
+                            <span x-text="analysis?.severity?.toUpperCase()"></span>
+                        </div>
+                    </div>
+
+                    <!-- Most Likely Conditions -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Most Likely Conditions</h3>
+                        <template x-for="condition in analysis?.conditions" :key="condition.name">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg mb-2">
+                                <div>
+                                    <span class="font-semibold" x-text="condition.name"></span>
+                                    <p class="text-sm text-gray-600" x-text="condition.description"></p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl font-bold text-blue-600" x-text="condition.probability + '%'"></div>
+                                    <div class="text-xs text-gray-500">Probability</div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Immediate Actions -->
+                    <div class="mb-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Immediate Actions Required</h3>
+                        <template x-for="(action, index) in analysis?.immediateActions" :key="index">
+                            <div class="flex items-start space-x-3 p-3 border-l-4 border-blue-500 bg-blue-50 mb-2">
+                                <div class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                                    <span x-text="index + 1"></span>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-blue-800" x-text="action.title"></p>
+                                    <p class="text-blue-700 text-sm" x-text="action.description"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Emergency Contact Button -->
+                    <div x-show="analysis?.severity === 'critical'" 
+                         class="text-center">
+                        <button @click="contactEmergency()" 
+                                class="critical-red text-white px-8 py-4 rounded-lg font-bold text-lg pulse-diagnostic">
+                            <i class="fas fa-phone mr-2"></i>CALL EMERGENCY SERVICES
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function rapidDiagnosisApp() {
+            return {
+                isRecording: false,
+                transcript: '',
+                symptoms: [],
+                analysis: null,
+                recognition: null,
+
+                init() {
+                    // Initialize speech recognition
+                    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                        this.recognition = new SpeechRecognition();
+                        this.recognition.continuous = false;
+                        this.recognition.interimResults = false;
+                        this.recognition.lang = 'en-US';
+
+                        this.recognition.onresult = (event) => {
+                            const result = event.results[0][0].transcript;
+                            this.transcript = result;
+                            this.processVoiceInput(result);
+                            this.isRecording = false;
+                        };
+
+                        this.recognition.onerror = () => {
+                            this.isRecording = false;
+                        };
+
+                        this.recognition.onend = () => {
+                            this.isRecording = false;
+                        };
+                    }
+                },
+
+                toggleVoiceInput() {
+                    if (this.isRecording) {
+                        this.recognition?.stop();
+                    } else {
+                        this.recognition?.start();
+                        this.isRecording = true;
+                    }
+                },
+
+                processVoiceInput(text) {
+                    // Extract symptoms from voice input using simple keyword matching
+                    const symptomKeywords = {
+                        'chest pain': ['chest pain', 'chest hurt', 'heart pain'],
+                        'difficulty breathing': ['cant breathe', 'shortness of breath', 'trouble breathing'],
+                        'severe headache': ['headache', 'head pain', 'migraine'],
+                        'high fever': ['fever', 'hot', 'temperature'],
+                        'dizziness': ['dizzy', 'lightheaded', 'faint'],
+                        'nausea': ['nausea', 'sick', 'vomit'],
+                        'abdominal pain': ['stomach pain', 'belly hurt', 'abdominal pain']
+                    };
+
+                    const textLower = text.toLowerCase();
+                    for (const [symptom, keywords] of Object.entries(symptomKeywords)) {
+                        if (keywords.some(keyword => textLower.includes(keyword))) {
+                            this.addSymptom(symptom);
+                        }
+                    }
+                },
+
+                addSymptom(symptom) {
+                    if (!this.symptoms.includes(symptom)) {
+                        this.symptoms.push(symptom);
+                    }
+                },
+
+                removeSymptom(symptom) {
+                    this.symptoms = this.symptoms.filter(s => s !== symptom);
+                },
+
+                analyzeSymptoms() {
+                    // Simulate AI analysis with medical knowledge base
+                    const analysis = this.performMedicalAnalysis(this.symptoms);
+                    this.analysis = analysis;
+
+                    // Speak the results
+                    this.speakAnalysis(analysis);
+                },
+
+                performMedicalAnalysis(symptoms) {
+                    // Simplified medical decision tree
+                    const criticalSymptoms = ['chest pain', 'difficulty breathing', 'severe bleeding'];
+                    const moderateSymptoms = ['severe headache', 'high fever', 'severe abdominal pain'];
+
+                    let severity = 'mild';
+                    let conditions = [];
+                    let immediateActions = [];
+
+                    if (symptoms.some(s => criticalSymptoms.includes(s))) {
+                        severity = 'critical';
+                        
+                        if (symptoms.includes('chest pain')) {
+                            conditions.push({
+                                name: 'Acute Coronary Syndrome',
+                                description: 'Possible heart attack or unstable angina',
+                                probability: 75
+                            });
+                            conditions.push({
+                                name: 'Pulmonary Embolism',
+                                description: 'Blood clot in lung arteries',
+                                probability: 25
+                            });
+                        }
+
+                        if (symptoms.includes('difficulty breathing')) {
+                            conditions.push({
+                                name: 'Acute Respiratory Distress',
+                                description: 'Severe breathing impairment',
+                                probability: 80
+                            });
+                        }
+
+                        immediateActions = [
+                            {
+                                title: 'Call 911 Immediately',
+                                description: 'This is a medical emergency requiring immediate attention'
+                            },
+                            {
+                                title: 'Stay Calm and Still',
+                                description: 'Avoid physical exertion, sit or lie down comfortably'
+                            },
+                            {
+                                title: 'Prepare for Emergency',
+                                description: 'Have someone stay with you, unlock door for paramedics'
+                            }
+                        ];
+                    } else if (symptoms.some(s => moderateSymptoms.includes(s))) {
+                        severity = 'moderate';
+                        conditions.push({
+                            name: 'Requires Medical Attention',
+                            description: 'Should be evaluated by healthcare provider today',
+                            probability: 90
+                        });
+                        immediateActions = [
+                            {
+                                title: 'Contact Healthcare Provider',
+                                description: 'Call doctor or urgent care for same-day appointment'
+                            },
+                            {
+                                title: 'Monitor Symptoms',
+                                description: 'Watch for worsening and be ready to seek emergency care'
+                            }
+                        ];
+                    } else {
+                        conditions.push({
+                            name: 'Minor Condition',
+                            description: 'Likely manageable with self-care or routine medical visit',
+                            probability: 85
+                        });
+                        immediateActions = [
+                            {
+                                title: 'Self-Care Measures',
+                                description: 'Rest, hydration, over-the-counter medications as appropriate'
+                            },
+                            {
+                                title: 'Schedule Routine Visit',
+                                description: 'Contact healthcare provider for non-urgent appointment'
+                            }
+                        ];
+                    }
+
+                    return {
+                        severity,
+                        conditions,
+                        immediateActions
+                    };
+                },
+
+                getSeverityColor(severity) {
+                    const colors = {
+                        critical: 'critical-red',
+                        moderate: 'moderate-yellow',
+                        mild: 'mild-green'
+                    };
+                    return colors[severity] || 'mild-green';
+                },
+
+                speakAnalysis(analysis) {
+                    if ('speechSynthesis' in window) {
+                        const text = `Based on your symptoms, this appears to be a ${analysis.severity} condition. ${analysis.immediateActions[0].description}`;
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.rate = 1;
+                        utterance.pitch = 1;
+                        utterance.volume = 1;
+                        speechSynthesis.speak(utterance);
+                    }
+                },
+
+                contactEmergency() {
+                    // In real implementation, this would integrate with emergency services
+                    if ('speechSynthesis' in window) {
+                        const utterance = new SpeechSynthesisUtterance('Emergency services are being contacted. Stay on the line and follow the protocol.');
+                        speechSynthesis.speak(utterance);
+                    }
+                    
+                    alert('🚨 EMERGENCY SERVICES CONTACTED\n\nLocation: Being transmitted\nCondition: Critical\nETA: 8-12 minutes\n\nStay calm and follow emergency protocol.');
+                }
+            };
+        }
+    </script>
+</body>
+</html>

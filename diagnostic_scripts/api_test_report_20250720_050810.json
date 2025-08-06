@@ -1,0 +1,130 @@
+﻿{
+    "passed_tests":  0,
+    "timestamp":  "2025-07-20 05:08:10",
+    "failed_tests":  1,
+    "total_tests":  1,
+    "recommendations":  [
+                            "Fix database import issues",
+                            "Correct dependency injection",
+                            "Ensure Docker services running",
+                            "Verify authentication flow"
+                        ],
+    "success_rate":  0,
+    "test_results":  [
+                         {
+                             "Message":  "Starting comprehensive API endpoint testing...",
+                             "Timestamp":  "05:08:10.730",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Base URL: http://localhost:8000",
+                             "Timestamp":  "05:08:10.733",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Timestamp: 2025-07-20 05:08:10",
+                             "Timestamp":  "05:08:10.738",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Testing Authentication",
+                             "Timestamp":  "05:08:10.747",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: POST /api/v1/auth/login",
+                             "Timestamp":  "05:08:10.752",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "ERROR: POST /api/v1/auth/login - Базовое соединение закрыто: Соединение было неожиданно закрыто.",
+                             "Timestamp":  "05:08:10.784",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "Authentication failed: 0 - {\r\n    \"error\":  \"Базовое соединение закрыто: Соединение было неожиданно закрыто.\"\r\n}",
+                             "Timestamp":  "05:08:10.788",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "Cannot continue without authentication",
+                             "Timestamp":  "05:08:10.797",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "COMPREHENSIVE 5 WHYS ANALYSIS",
+                             "Timestamp":  "05:08:10.810",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "OVERALL RESULTS:",
+                             "Timestamp":  "05:08:10.816",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Total Tests: 1",
+                             "Timestamp":  "05:08:10.819",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Passed: 0",
+                             "Timestamp":  "05:08:10.823",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "  Failed: 1",
+                             "Timestamp":  "05:08:10.827",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "  Success Rate: 0%",
+                             "Timestamp":  "05:08:10.833",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "ROOT CAUSE ANALYSIS:",
+                             "Timestamp":  "05:08:10.842",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "NEEDS WORK - Major issues detected",
+                             "Timestamp":  "05:08:10.845",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "Recommendation: Systematic debugging required",
+                             "Timestamp":  "05:08:10.848",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "SPECIFIC FIXES NEEDED:",
+                             "Timestamp":  "05:08:10.851",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "1. Check Docker services are running",
+                             "Timestamp":  "05:08:10.855",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "2. Verify database connectivity",
+                             "Timestamp":  "05:08:10.858",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "3. Fix import errors (database_unified vs database_advanced)",
+                             "Timestamp":  "05:08:10.863",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "4. Correct dependency injection issues",
+                             "Timestamp":  "05:08:10.866",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "5. Ensure service layer properly handles encryption/decryption",
+                             "Timestamp":  "05:08:10.880",
+                             "Level":  "INFO"
+                         }
+                     ]
+}

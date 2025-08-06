@@ -1,0 +1,550 @@
+﻿{
+    "passed_tests":  3,
+    "timestamp":  "2025-07-20 00:51:33",
+    "failed_tests":  4,
+    "total_tests":  16,
+    "recommendations":  [
+                            "Fix database import issues",
+                            "Correct dependency injection",
+                            "Ensure Docker services running",
+                            "Verify authentication flow"
+                        ],
+    "success_rate":  18.8,
+    "test_results":  [
+                         {
+                             "Message":  "Starting comprehensive API endpoint testing...",
+                             "Timestamp":  "00:51:29.690",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Base URL: http://localhost:8000",
+                             "Timestamp":  "00:51:29.692",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Timestamp: 2025-07-20 00:51:29",
+                             "Timestamp":  "00:51:29.695",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Testing Authentication",
+                             "Timestamp":  "00:51:29.699",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: POST /api/v1/auth/login",
+                             "Timestamp":  "00:51:29.706",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:30.685",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "Authentication successful",
+                             "Timestamp":  "00:51:30.688",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "Testing Documents Health Endpoint",
+                             "Timestamp":  "00:51:30.691",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/documents/health",
+                             "Timestamp":  "00:51:30.694",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:30.776",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "Documents health OK: unhealthy",
+                             "Timestamp":  "00:51:30.779",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "Testing Patient Creation",
+                             "Timestamp":  "00:51:30.781",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: POST /api/v1/healthcare/patients",
+                             "Timestamp":  "00:51:30.785",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 201",
+                             "Timestamp":  "00:51:31.327",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "Patient created successfully: 4441da42-1bd7-47bf-833c-7af16abad1e8",
+                             "Timestamp":  "00:51:31.330",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "Testing Get Patient by ID: 4441da42-1bd7-47bf-833c-7af16abad1e8",
+                             "Timestamp":  "00:51:31.333",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/healthcare/patients/4441da42-1bd7-47bf-833c-7af16abad1e8",
+                             "Timestamp":  "00:51:31.336",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "ERROR: GET /api/v1/healthcare/patients/4441da42-1bd7-47bf-833c-7af16abad1e8 - Удаленный сервер возвратил ошибку: (404) Не найден.",
+                             "Timestamp":  "00:51:31.721",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Status Code: 404",
+                             "Timestamp":  "00:51:31.725",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Response: ",
+                             "Timestamp":  "00:51:31.728",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "Get patient failed: 404 - ",
+                             "Timestamp":  "00:51:31.731",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "5 WHYS ANALYSIS - Get Patient:",
+                             "Timestamp":  "00:51:31.733",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 1: Status 404 indicates server error",
+                             "Timestamp":  "00:51:31.736",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 2: Check if dependency injection is correct (verify_token vs get_current_user_id)",
+                             "Timestamp":  "00:51:31.738",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 3: Verify database imports (database_unified vs database_advanced)",
+                             "Timestamp":  "00:51:31.741",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 4: Check if service layer can access patient data",
+                             "Timestamp":  "00:51:31.744",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 5: Verify patient model fields match API expectations",
+                             "Timestamp":  "00:51:31.746",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "Testing Update Patient: 4441da42-1bd7-47bf-833c-7af16abad1e8",
+                             "Timestamp":  "00:51:31.751",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: PUT /api/v1/healthcare/patients/4441da42-1bd7-47bf-833c-7af16abad1e8",
+                             "Timestamp":  "00:51:31.755",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "ERROR: PUT /api/v1/healthcare/patients/4441da42-1bd7-47bf-833c-7af16abad1e8 - Удаленный сервер возвратил ошибку: (500) Внутренняя ошибка сервера.",
+                             "Timestamp":  "00:51:31.808",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Status Code: 500",
+                             "Timestamp":  "00:51:31.810",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Response: ",
+                             "Timestamp":  "00:51:31.813",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "Update patient failed: 500 - ",
+                             "Timestamp":  "00:51:31.816",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "5 WHYS ANALYSIS - Update Patient:",
+                             "Timestamp":  "00:51:31.822",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 1: Status 500 suggests database or service error",
+                             "Timestamp":  "00:51:31.825",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 2: Check if database imports are correct",
+                             "Timestamp":  "00:51:31.829",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 3: Verify patient model has required fields for update",
+                             "Timestamp":  "00:51:31.831",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 4: Check if update validation is working",
+                             "Timestamp":  "00:51:31.833",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 5: Verify encryption service is available",
+                             "Timestamp":  "00:51:31.835",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "Testing Audit Logs Endpoint",
+                             "Timestamp":  "00:51:31.838",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/audit/logs",
+                             "Timestamp":  "00:51:31.841",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "ERROR: GET /api/v1/audit/logs - Удаленный сервер возвратил ошибку: (500) Внутренняя ошибка сервера.",
+                             "Timestamp":  "00:51:32.172",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Status Code: 500",
+                             "Timestamp":  "00:51:32.174",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Response: ",
+                             "Timestamp":  "00:51:32.177",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "Audit logs failed: 500 - ",
+                             "Timestamp":  "00:51:32.178",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "5 WHYS ANALYSIS - Audit Logs:",
+                             "Timestamp":  "00:51:32.181",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 1: Status 500 indicates service unavailability",
+                             "Timestamp":  "00:51:32.183",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 2: Check if audit service is properly initialized",
+                             "Timestamp":  "00:51:32.185",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 3: Verify audit database tables exist",
+                             "Timestamp":  "00:51:32.186",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 4: Check if audit logger dependencies are available",
+                             "Timestamp":  "00:51:32.189",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 5: Verify audit service configuration",
+                             "Timestamp":  "00:51:32.192",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "Testing Error Handling (Non-existent Patient)",
+                             "Timestamp":  "00:51:32.196",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/healthcare/patients/00000000-0000-0000-0000-000000000000",
+                             "Timestamp":  "00:51:32.198",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "ERROR: GET /api/v1/healthcare/patients/00000000-0000-0000-0000-000000000000 - Удаленный сервер возвратил ошибку: (500) Внутренняя ошибка сервера.",
+                             "Timestamp":  "00:51:32.230",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Status Code: 500",
+                             "Timestamp":  "00:51:32.233",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "   Response: ",
+                             "Timestamp":  "00:51:32.237",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "Error handling incorrect: Expected 404, got 500",
+                             "Timestamp":  "00:51:32.243",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "5 WHYS ANALYSIS - Error Handling:",
+                             "Timestamp":  "00:51:32.246",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 1: Should return 404, got 500",
+                             "Timestamp":  "00:51:32.248",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 2: Check if proper exception handling exists",
+                             "Timestamp":  "00:51:32.251",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 3: Verify database query handles non-existent records",
+                             "Timestamp":  "00:51:32.253",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 4: Check if service layer returns appropriate errors",
+                             "Timestamp":  "00:51:32.258",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "   Why 5: Verify error mapping in router",
+                             "Timestamp":  "00:51:32.261",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "Testing All Health Endpoints",
+                             "Timestamp":  "00:51:32.267",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /health",
+                             "Timestamp":  "00:51:32.270",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:32.334",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /health",
+                             "Timestamp":  "00:51:32.338",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/healthcare/health",
+                             "Timestamp":  "00:51:32.340",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:32.405",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/healthcare/health",
+                             "Timestamp":  "00:51:32.408",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/dashboard/health",
+                             "Timestamp":  "00:51:32.411",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:32.493",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/dashboard/health",
+                             "Timestamp":  "00:51:32.497",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/audit/health",
+                             "Timestamp":  "00:51:32.499",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:32.593",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/audit/health",
+                             "Timestamp":  "00:51:32.597",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/documents/health",
+                             "Timestamp":  "00:51:32.601",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:32.679",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/documents/health",
+                             "Timestamp":  "00:51:32.681",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/analytics/health",
+                             "Timestamp":  "00:51:32.684",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:32.743",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/analytics/health",
+                             "Timestamp":  "00:51:32.747",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/patients/risk/health",
+                             "Timestamp":  "00:51:32.750",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:33.126",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/patients/risk/health",
+                             "Timestamp":  "00:51:33.131",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/purge/health",
+                             "Timestamp":  "00:51:33.136",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:33.241",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/purge/health",
+                             "Timestamp":  "00:51:33.245",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "REQUEST: GET /api/v1/iris/health",
+                             "Timestamp":  "00:51:33.250",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "RESPONSE: 200",
+                             "Timestamp":  "00:51:33.349",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "OK: /api/v1/iris/health",
+                             "Timestamp":  "00:51:33.354",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "Health endpoints: 9/9 (100%)",
+                             "Timestamp":  "00:51:33.359",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "COMPREHENSIVE 5 WHYS ANALYSIS",
+                             "Timestamp":  "00:51:33.365",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "OVERALL RESULTS:",
+                             "Timestamp":  "00:51:33.371",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Total Tests: 16",
+                             "Timestamp":  "00:51:33.376",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Passed: 3",
+                             "Timestamp":  "00:51:33.382",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "  Failed: 4",
+                             "Timestamp":  "00:51:33.386",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "  Success Rate: 18.8%",
+                             "Timestamp":  "00:51:33.390",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "ROOT CAUSE ANALYSIS:",
+                             "Timestamp":  "00:51:33.398",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "NEEDS WORK - Major issues detected",
+                             "Timestamp":  "00:51:33.401",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "Recommendation: Systematic debugging required",
+                             "Timestamp":  "00:51:33.406",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "SPECIFIC FIXES NEEDED:",
+                             "Timestamp":  "00:51:33.409",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "1. Check Docker services are running",
+                             "Timestamp":  "00:51:33.413",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "2. Verify database connectivity",
+                             "Timestamp":  "00:51:33.416",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "3. Fix import errors (database_unified vs database_advanced)",
+                             "Timestamp":  "00:51:33.419",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "4. Correct dependency injection issues",
+                             "Timestamp":  "00:51:33.422",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "5. Ensure service layer properly handles encryption/decryption",
+                             "Timestamp":  "00:51:33.426",
+                             "Level":  "INFO"
+                         }
+                     ]
+}

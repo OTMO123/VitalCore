@@ -1,0 +1,14 @@
+{
+  "fixes_attempted": 6,
+  "fixes_successful": 6,
+  "fixes_failed": 0,
+  "fixes_applied": [
+    "patient_schema_validation",
+    "database_connection_pool",
+    "restart_script"
+  ],
+  "recommendations": [
+    "\u2705 Restart backend to apply schema changes",
+    "\ud83d\ude80 Use ./restart_backend.sh to restart with fixes"
+  ]
+}

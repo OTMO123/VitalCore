@@ -1,0 +1,62 @@
+{
+  "timestamp": "2025-07-22T01:33:07.621728",
+  "total_tests": 6,
+  "passed": 0,
+  "failed": 6,
+  "results": [
+    {
+      "endpoint": "/health",
+      "method": "GET",
+      "status_code": 0,
+      "response_time_ms": 30825.93,
+      "success": false,
+      "error": "",
+      "timestamp": "2025-07-22T01:30:32.599078"
+    },
+    {
+      "endpoint": "/health/detailed",
+      "method": "GET",
+      "status_code": 0,
+      "response_time_ms": 30996.1,
+      "success": false,
+      "error": "",
+      "timestamp": "2025-07-22T01:31:03.601992"
+    },
+    {
+      "endpoint": "/api/v1/auth/login",
+      "method": "POST",
+      "status_code": 0,
+      "response_time_ms": 30989.24,
+      "success": false,
+      "error": "",
+      "timestamp": "2025-07-22T01:31:34.602471"
+    },
+    {
+      "endpoint": "/api/v1/clinical-workflows/health",
+      "method": "GET",
+      "status_code": 0,
+      "response_time_ms": 30998.58,
+      "success": false,
+      "error": "",
+      "timestamp": "2025-07-22T01:32:05.606719"
+    },
+    {
+      "endpoint": "/api/v1/iris/health",
+      "method": "GET",
+      "status_code": 0,
+      "response_time_ms": 30995.75,
+      "success": false,
+      "error": "",
+      "timestamp": "2025-07-22T01:32:36.608870"
+    },
+    {
+      "endpoint": "/api/v1/risk-stratification/health",
+      "method": "GET",
+      "status_code": 0,
+      "response_time_ms": 30982.35,
+      "success": false,
+      "error": "",
+      "timestamp": "2025-07-22T01:33:07.607815"
+    }
+  ]
+}

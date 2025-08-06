@@ -1,0 +1,319 @@
+# Alertmanager Configuration for Healthcare Monitoring
+# Production-grade alert routing and notifications
+
+global:
+  smtp_smarthost: 'smtp.company.com:587'
+  smtp_from: 'healthcare-alerts@company.com'
+  smtp_auth_username: 'healthcare-alerts@company.com'
+  smtp_auth_password: 'smtp_password_here'
+  smtp_require_tls: true
+
+# Routing and grouping rules
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default-receiver'
+  
+  routes:
+    # Critical healthcare alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-healthcare-alerts'
+      group_wait: 0s
+      repeat_interval: 15m
+      routes:
+        # PHI data breach - immediate escalation
+        - match:
+            compliance: HIPAA
+            breach_risk: high
+          receiver: 'security-incident-team'
+          group_wait: 0s
+          repeat_interval: 5m
+        
+        # Database failures - immediate DBA notification
+        - match:
+            service: database
+          receiver: 'database-team'
+          group_wait: 0s
+          repeat_interval: 10m
+    
+    # Security alerts
+    - match:
+        service: security
+      receiver: 'security-team'
+      group_wait: 30s
+      repeat_interval: 30m
+    
+    # Compliance alerts
+    - match_re:
+        compliance: (HIPAA|SOC2|FHIR_R4)
+      receiver: 'compliance-team'
+      group_wait: 1m
+      repeat_interval: 2h
+    
+    # Performance alerts
+    - match:
+        sla: response_time
+      receiver: 'performance-team'
+      group_wait: 2m
+      repeat_interval: 1h
+    
+    # Business hours vs after hours routing
+    - match:
+        severity: warning
+      receiver: 'business-hours-team'
+      active_time_intervals:
+        - business_hours
+      continue: true
+    
+    - match:
+        severity: warning
+      receiver: 'on-call-team'
+      active_time_intervals:
+        - after_hours
+
+# Time intervals for business hours routing
+time_intervals:
+  - name: business_hours
+    time_intervals:
+      - times:
+        - start_time: '08:00'
+          end_time: '18:00'
+        weekdays: ['monday:friday']
+        location: 'America/New_York'
+  
+  - name: after_hours
+    time_intervals:
+      - times:
+        - start_time: '18:01'
+          end_time: '07:59'
+        weekdays: ['monday:friday']
+      - times:
+        - start_time: '00:00'
+          end_time: '23:59'
+        weekdays: ['saturday', 'sunday']
+        location: 'America/New_York'
+
+# Alert receivers and notification methods
+receivers:
+  # Default receiver for non-critical alerts
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'healthcare-ops@company.com'
+        subject: '[Healthcare] {{ .GroupLabels.alertname }} - {{ .Status | toUpper }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+        html: |
+          <h2>Healthcare System Alert</h2>
+          <table border="1">
+          <tr><th>Alert</th><th>Description</th><th>Severity</th><th>Time</th></tr>
+          {{ range .Alerts }}
+          <tr>
+          <td>{{ .Annotations.summary }}</td>
+          <td>{{ .Annotations.description }}</td>
+          <td>{{ .Labels.severity }}</td>
+          <td>{{ .StartsAt.Format "2006-01-02 15:04:05" }}</td>
+          </tr>
+          {{ end }}
+          </table>
+
+  # Critical healthcare alerts - multiple notification channels
+  - name: 'critical-healthcare-alerts'
+    email_configs:
+      - to: 'healthcare-critical@company.com,cto@company.com'
+        subject: '🚨 CRITICAL Healthcare Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          CRITICAL HEALTHCARE SYSTEM ALERT
+          
+          This alert requires immediate attention as it affects patient care delivery.
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook_url }}
+          Service: {{ .Labels.service }}
+          Compliance Impact: {{ .Labels.compliance }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+          {{ end }}
+        
+        headers:
+          X-Priority: "1"
+          X-MS-Mail-Priority: "High"
+    
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#healthcare-critical-alerts'
+        title: '🚨 Critical Healthcare Alert'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          
+          *Service:* {{ .Labels.service }}
+          *Compliance:* {{ .Labels.compliance }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+    
+    pagerduty_configs:
+      - routing_key: 'YOUR_PAGERDUTY_INTEGRATION_KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .Alerts.Len }} alerts'
+        severity: 'critical'
+        client: 'Healthcare Monitoring'
+        client_url: 'http://grafana:3000'
+        details:
+          summary: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+          service: '{{ .GroupLabels.service }}'
+          compliance: '{{ .GroupLabels.compliance }}'
+
+  # Security incident team - immediate response
+  - name: 'security-incident-team'
+    email_configs:
+      - to: 'security-incidents@company.com,ciso@company.com'
+        subject: '🔒 SECURITY INCIDENT: Potential PHI Breach Detected'
+        body: |
+          SECURITY INCIDENT ALERT - POTENTIAL PHI BREACH
+          
+          This alert indicates a potential HIPAA violation or data breach.
+          Immediate investigation and response required.
+          
+          {{ range .Alerts }}
+          Incident: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          Risk Level: {{ .Labels.breach_risk }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+          {{ end }}
+          
+          REQUIRED ACTIONS:
+          1. Immediately investigate the incident
+          2. Document all findings
+          3. Notify legal team if confirmed breach
+          4. Follow incident response playbook
+        
+        headers:
+          X-Priority: "1"
+    
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SECURITY/WEBHOOK'
+        channel: '#security-incidents'
+        title: '🔒 SECURITY INCIDENT: Potential PHI Breach'
+        text: |
+          {{ range .Alerts }}
+          *POTENTIAL PHI BREACH DETECTED*
+          
+          *Incident:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Risk Level:* {{ .Labels.breach_risk }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+          {{ end }}
+        color: 'danger'
+
+  # Database team notifications
+  - name: 'database-team'
+    email_configs:
+      - to: 'dba-team@company.com'
+        subject: '[DATABASE] {{ .GroupLabels.alertname }} - Healthcare System'
+        body: |
+          Database Alert - Healthcare System
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+    
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/DBA/WEBHOOK'
+        channel: '#database-alerts'
+        title: 'Database Alert - Healthcare System'
+
+  # Security team notifications
+  - name: 'security-team'
+    email_configs:
+      - to: 'security-team@company.com'
+        subject: '[SECURITY] {{ .GroupLabels.alertname }}'
+        body: |
+          Security Alert - Healthcare System
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Attack Type: {{ .Labels.attack_type }}
+          {{ end }}
+
+  # Compliance team notifications
+  - name: 'compliance-team'
+    email_configs:
+      - to: 'compliance@company.com,privacy-officer@company.com'
+        subject: '[COMPLIANCE] {{ .GroupLabels.alertname }} - {{ .GroupLabels.compliance }}'
+        body: |
+          Compliance Alert - Healthcare System
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Compliance Standard: {{ .Labels.compliance }}
+          {{ end }}
+
+  # Performance team notifications
+  - name: 'performance-team'
+    email_configs:
+      - to: 'performance-team@company.com'
+        subject: '[PERFORMANCE] {{ .GroupLabels.alertname }}'
+        body: |
+          Performance Alert - Healthcare System
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          SLA Impact: {{ .Labels.sla }}
+          {{ end }}
+
+  # Business hours team
+  - name: 'business-hours-team'
+    email_configs:
+      - to: 'healthcare-ops@company.com'
+        subject: '[Healthcare] {{ .GroupLabels.alertname }} (Business Hours)'
+
+  # On-call team for after hours
+  - name: 'on-call-team'
+    pagerduty_configs:
+      - routing_key: 'YOUR_ONCALL_PAGERDUTY_KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .Alerts.Len }} alerts'
+        severity: 'warning'
+
+# Inhibit rules to prevent alert spam
+inhibit_rules:
+  # Inhibit warning alerts if critical alert is firing for same service
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: ['service', 'alertname']
+  
+  # Inhibit individual component alerts if entire API is down
+  - source_matchers:
+      - alertname="HealthcareAPIDown"
+    target_matchers:
+      - service="healthcare-api"
+  
+  # Inhibit cache alerts if Redis is completely down
+  - source_matchers:
+      - alertname="RedisDown"
+    target_matchers:
+      - service="redis-cache"
+
+# Global settings
+global:
+  resolve_timeout: 5m
+  http_config:
+    tls_config:
+      insecure_skip_verify: false
+  smtp_hello: 'healthcare-monitoring.company.com'

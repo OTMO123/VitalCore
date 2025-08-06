@@ -1,0 +1,130 @@
+﻿{
+    "passed_tests":  0,
+    "timestamp":  "2025-07-20 05:08:36",
+    "failed_tests":  1,
+    "total_tests":  1,
+    "recommendations":  [
+                            "Fix database import issues",
+                            "Correct dependency injection",
+                            "Ensure Docker services running",
+                            "Verify authentication flow"
+                        ],
+    "success_rate":  0,
+    "test_results":  [
+                         {
+                             "Message":  "Starting comprehensive API endpoint testing...",
+                             "Timestamp":  "05:08:33.278",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Base URL: IRIS",
+                             "Timestamp":  "05:08:33.283",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Timestamp: 2025-07-20 05:08:33",
+                             "Timestamp":  "05:08:33.288",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Testing Authentication",
+                             "Timestamp":  "05:08:33.294",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: POST /api/v1/auth/login",
+                             "Timestamp":  "05:08:33.298",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "ERROR: POST /api/v1/auth/login - Невозможно разрешить удаленное имя: \u0027iris\u0027",
+                             "Timestamp":  "05:08:36.011",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "Authentication failed: 0 - {\r\n    \"error\":  \"Невозможно разрешить удаленное имя: \\u0027iris\\u0027\"\r\n}",
+                             "Timestamp":  "05:08:36.013",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "Cannot continue without authentication",
+                             "Timestamp":  "05:08:36.014",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "COMPREHENSIVE 5 WHYS ANALYSIS",
+                             "Timestamp":  "05:08:36.017",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "OVERALL RESULTS:",
+                             "Timestamp":  "05:08:36.021",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Total Tests: 1",
+                             "Timestamp":  "05:08:36.023",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Passed: 0",
+                             "Timestamp":  "05:08:36.025",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "  Failed: 1",
+                             "Timestamp":  "05:08:36.027",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "  Success Rate: 0%",
+                             "Timestamp":  "05:08:36.029",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "ROOT CAUSE ANALYSIS:",
+                             "Timestamp":  "05:08:36.031",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "NEEDS WORK - Major issues detected",
+                             "Timestamp":  "05:08:36.032",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "Recommendation: Systematic debugging required",
+                             "Timestamp":  "05:08:36.035",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "SPECIFIC FIXES NEEDED:",
+                             "Timestamp":  "05:08:36.037",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "1. Check Docker services are running",
+                             "Timestamp":  "05:08:36.039",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "2. Verify database connectivity",
+                             "Timestamp":  "05:08:36.040",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "3. Fix import errors (database_unified vs database_advanced)",
+                             "Timestamp":  "05:08:36.043",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "4. Correct dependency injection issues",
+                             "Timestamp":  "05:08:36.045",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "5. Ensure service layer properly handles encryption/decryption",
+                             "Timestamp":  "05:08:36.046",
+                             "Level":  "INFO"
+                         }
+                     ]
+}

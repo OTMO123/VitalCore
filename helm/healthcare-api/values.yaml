@@ -1,0 +1,382 @@
+# Healthcare API Helm Values
+# Enterprise-grade configuration for SOC2/HIPAA compliance
+
+global:
+  # Environment configuration
+  environment: production
+  region: us-east-1
+  domain: healthcare.yourdomain.com
+  
+  # Image configuration
+  imageRegistry: ghcr.io
+  imagePullSecrets:
+    - name: ghcr-secret
+  
+  # Security configuration
+  security:
+    enablePodSecurityPolicy: true
+    enableNetworkPolicies: true
+    enableServiceMesh: true
+  
+  # Compliance settings
+  compliance:
+    hipaa: true
+    soc2: true
+    fhir: true
+    auditRetentionDays: 2555  # 7 years
+
+# Application configuration
+app:
+  name: healthcare-api
+  replicaCount: 3
+  
+  image:
+    repository: healthcare-api
+    tag: "latest"
+    pullPolicy: Always
+  
+  # Resource configuration
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+      ephemeral-storage: "1Gi"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+      ephemeral-storage: "5Gi"
+  
+  # Security context
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  
+  # Container security
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
+  
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  
+  startupProbe:
+    httpGet:
+      path: /health/startup
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+  metricsPort: 8001
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+
+# Ingress/Gateway configuration
+ingress:
+  enabled: true
+  className: istio
+  annotations:
+    kubernetes.io/ingress.class: istio
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.healthcare.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: admin.healthcare.yourdomain.com
+      paths:
+        - path: /admin
+          pathType: Prefix
+  tls:
+    - secretName: healthcare-api-tls-cert
+      hosts:
+        - api.healthcare.yourdomain.com
+        - admin.healthcare.yourdomain.com
+
+# Istio configuration
+istio:
+  enabled: true
+  gateway:
+    name: healthcare-api-gateway
+    hosts:
+      - api.healthcare.yourdomain.com
+      - admin.healthcare.yourdomain.com
+  virtualService:
+    name: healthcare-api-vs
+    retries:
+      attempts: 3
+      perTryTimeout: 30s
+    timeout: 60s
+  destinationRule:
+    name: healthcare-api-dr
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  hpa:
+    minReplicas: 3
+    maxReplicas: 50
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 70
+      - type: Resource
+        resource:
+          name: memory
+          target:
+            type: Utilization
+            averageUtilization: 80
+  vpa:
+    enabled: true
+    updateMode: Auto
+  pdb:
+    enabled: true
+    minAvailable: 2
+
+# Database configuration
+database:
+  # Use external PostgreSQL cluster
+  external: true
+  host: postgres-cluster-rw.healthcare-database.svc.cluster.local
+  port: 5432
+  name: iris_db
+  sslMode: require
+  
+  # Internal PostgreSQL (for development)
+  postgresql:
+    enabled: false
+    auth:
+      database: iris_db
+      username: postgres
+    primary:
+      persistence:
+        enabled: true
+        size: 100Gi
+        storageClass: fast-ssd-encrypted
+
+# Redis configuration
+cache:
+  # Use external Redis cluster
+  external: true
+  host: redis-cluster.healthcare-api.svc.cluster.local
+  port: 6380
+  ssl: true
+  
+  # Internal Redis (for development)
+  redis:
+    enabled: false
+    auth:
+      enabled: true
+    master:
+      persistence:
+        enabled: true
+        size: 10Gi
+        storageClass: fast-ssd-encrypted
+
+# MinIO configuration
+storage:
+  minio:
+    enabled: true
+    endpoint: minio.healthcare-api.svc.cluster.local:9000
+    secure: true
+    buckets:
+      - name: healthcare-documents
+        policy: private
+        encryption: true
+      - name: healthcare-backups
+        policy: private
+        encryption: true
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 15s
+      path: /metrics
+  grafana:
+    enabled: true
+    dashboards:
+      enabled: true
+  jaeger:
+    enabled: true
+    endpoint: http://jaeger-collector.healthcare-monitoring.svc.cluster.local:14268/api/traces
+
+# Logging configuration
+logging:
+  enabled: true
+  level: INFO
+  format: json
+  elasticsearch:
+    enabled: true
+    host: elasticsearch.healthcare-monitoring.svc.cluster.local
+    port: 9200
+    index: healthcare-api
+
+# Security configuration
+security:
+  vault:
+    enabled: true
+    address: https://vault.healthcare.local:8200
+    role: healthcare-api
+    secrets:
+      - name: app-secrets
+        path: healthcare-secrets/application/api
+      - name: db-credentials
+        path: healthcare-secrets/database/postgres
+      - name: redis-auth
+        path: healthcare-secrets/cache/redis
+      - name: encryption-keys
+        path: healthcare-secrets/application/encryption
+  
+  networkPolicies:
+    enabled: true
+    ingress:
+      - from:
+        - namespaceSelector:
+            matchLabels:
+              name: istio-system
+        - namespaceSelector:
+            matchLabels:
+              name: healthcare-monitoring
+    egress:
+      - to:
+        - namespaceSelector:
+            matchLabels:
+              name: healthcare-database
+        - namespaceSelector:
+            matchLabels:
+              name: vault-system
+      - to: []
+        ports:
+        - protocol: TCP
+          port: 443
+        - protocol: UDP
+          port: 53
+
+# Compliance configuration
+compliance:
+  hipaa:
+    enabled: true
+    phiEncryption: true
+    accessLogging: true
+    auditRetention: 2555  # days
+  soc2:
+    enabled: true
+    immutableLogs: true
+    changeManagement: true
+    accessReviews: true
+  fhir:
+    enabled: true
+    version: R4
+    validation: true
+    terminology:
+      - SNOMED_CT
+      - ICD_10
+      - LOINC
+
+# Environment-specific configurations
+environments:
+  development:
+    app:
+      replicaCount: 1
+    autoscaling:
+      enabled: false
+    database:
+      postgresql:
+        enabled: true
+    cache:
+      redis:
+        enabled: true
+    monitoring:
+      enabled: false
+    security:
+      vault:
+        enabled: false
+  
+  staging:
+    app:
+      replicaCount: 2
+    autoscaling:
+      hpa:
+        maxReplicas: 10
+    monitoring:
+      enabled: true
+  
+  production:
+    app:
+      replicaCount: 3
+    autoscaling:
+      hpa:
+        maxReplicas: 50
+    monitoring:
+      enabled: true
+    security:
+      vault:
+        enabled: true
+    compliance:
+      hipaa:
+        enabled: true
+      soc2:
+        enabled: true
+
+# Node affinity and tolerations
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+    - matchExpressions:
+      - key: node-role
+        operator: In
+        values: ["application"]
+
+tolerations: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

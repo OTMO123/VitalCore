@@ -1,0 +1,218 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: iris_postgres_prod
+    environment:
+      POSTGRES_DB: iris_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_production_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./init-enterprise.sql:/docker-entrypoint-initdb.d/02-enterprise.sql:ro
+    networks:
+      - vitalcore-prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis for background tasks and caching
+  redis:
+    image: redis:7-alpine
+    container_name: iris_redis_prod
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_prod:/data
+    networks:
+      - vitalcore-prod
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Main FastAPI application
+  app:
+    build: .
+    container_name: iris_app_prod
+    environment:
+      - DEBUG=false
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-secure_production_password}@db:5432/iris_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-this-encryption-key}
+      - FRONTEND_URL=http://nginx
+      - ALLOWED_ORIGINS=https://yourdomain.com,http://localhost:3000
+    expose:
+      - "8000"
+    volumes:
+      - .:/app
+      - app_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - vitalcore-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]
+    restart: unless-stopped
+
+  # VitalCore Frontend (Production Build)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: vitalcore_frontend_prod
+    expose:
+      - "80"
+    depends_on:
+      - app
+    networks:
+      - vitalcore-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: vitalcore_nginx_prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - app
+    networks:
+      - vitalcore-prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Celery worker for background tasks
+  worker:
+    build: .
+    container_name: iris_worker_prod
+    environment:
+      - DEBUG=false
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-secure_production_password}@db:5432/iris_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-this-encryption-key}
+    volumes:
+      - .:/app
+      - worker_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - vitalcore-prod
+    command: ["celery", "-A", "app.core.tasks", "worker", "--loglevel=info", "--concurrency=4"]
+    restart: unless-stopped
+
+  # Celery beat scheduler
+  scheduler:
+    build: .
+    container_name: iris_scheduler_prod
+    environment:
+      - DEBUG=false
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-secure_production_password}@db:5432/iris_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-this-encryption-key}
+    volumes:
+      - .:/app
+      - scheduler_logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - vitalcore-prod
+    command: ["celery", "-A", "app.core.tasks", "beat", "--loglevel=info"]
+    restart: unless-stopped
+
+  # MinIO object storage for documents
+  minio:
+    image: minio/minio:latest
+    container_name: iris_minio_prod
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123secure}
+      MINIO_KMS_SECRET_KEY: ${MINIO_KMS_SECRET_KEY:-my-minio-key:OSMM+vkIiXEQKs4K1bL7YYjHp8xQIm9xJFf/F1lPdg0=}
+      MINIO_REGION: us-east-1
+      MINIO_COMPRESSION_ENABLE: "on"
+      MINIO_COMPRESSION_EXTENSIONS: .pdf,.doc,.docx,.txt,.jpg,.png,.dicom
+      MINIO_SCANNER: "on"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data_prod:/data
+    networks:
+      - vitalcore-prod
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  # Monitoring and logging (Optional)
+  watchtower:
+    image: containrrr/watchtower
+    container_name: vitalcore_watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 3600 --cleanup
+    restart: unless-stopped
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
+  minio_data_prod:
+  app_logs:
+  worker_logs:
+  scheduler_logs:
+  nginx_logs:
+
+networks:
+  vitalcore-prod:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

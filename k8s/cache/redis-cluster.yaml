@@ -1,0 +1,300 @@
+---
+# Redis Cluster Configuration
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: healthcare-api
+  labels:
+    app: redis-cluster
+    component: cache
+spec:
+  serviceName: redis-cluster-headless
+  replicas: 6
+  selector:
+    matchLabels:
+      app: redis-cluster
+  template:
+    metadata:
+      labels:
+        app: redis-cluster
+        component: cache
+    spec:
+      serviceAccountName: healthcare-api-sa
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        runAsNonRoot: true
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: redis-cluster
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: client
+        - containerPort: 16379
+          name: gossip
+        command:
+        - redis-server
+        args:
+        - /etc/redis/redis.conf
+        - --cluster-enabled
+        - --cluster-require-full-coverage
+        - --cluster-node-timeout
+        - "15000"
+        - --cluster-config-file
+        - /data/nodes.conf
+        - --cluster-migration-barrier
+        - "1"
+        - --appendonly
+        - "yes"
+        - --protected-mode
+        - "no"
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        - --masterauth
+        - $(REDIS_PASSWORD)
+        - --maxmemory
+        - "512mb"
+        - --maxmemory-policy
+        - "allkeys-lru"
+        - --save
+        - "900 1"
+        - --save
+        - "300 10"
+        - --save
+        - "60 10000"
+        - --tcp-keepalive
+        - "300"
+        - --timeout
+        - "0"
+        - --tcp-backlog
+        - "511"
+        - --databases
+        - "16"
+        # TLS configuration for encryption in transit
+        - --tls-port
+        - "6380"
+        - --port
+        - "0"
+        - --tls-cert-file
+        - /tls/redis.crt
+        - --tls-key-file
+        - /tls/redis.key
+        - --tls-ca-cert-file
+        - /tls/ca.crt
+        - --tls-protocols
+        - "TLSv1.2 TLSv1.3"
+        - --tls-prefer-server-ciphers
+        - "yes"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /etc/redis/
+        - name: tls-certs
+          mountPath: /tls
+          readOnly: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - --tls
+            - --cert
+            - /tls/redis.crt
+            - --key
+            - /tls/redis.key
+            - --cacert
+            - /tls/ca.crt
+            - -p
+            - "6380"
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - --tls
+            - --cert
+            - /tls/redis.crt
+            - --key
+            - /tls/redis.key
+            - --cacert
+            - /tls/ca.crt
+            - -p
+            - "6380"
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 2
+      - name: redis-exporter
+        image: oliver006/redis_exporter:v1.55.0
+        ports:
+        - containerPort: 9121
+          name: metrics
+        env:
+        - name: REDIS_ADDR
+          value: "rediss://localhost:6380"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-auth
+              key: password
+        - name: REDIS_EXPORTER_TLS_CLIENT_CERT_FILE
+          value: "/tls/redis.crt"
+        - name: REDIS_EXPORTER_TLS_CLIENT_KEY_FILE
+          value: "/tls/redis.key"
+        - name: REDIS_EXPORTER_TLS_CA_CERT_FILE
+          value: "/tls/ca.crt"
+        volumeMounts:
+        - name: tls-certs
+          mountPath: /tls
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: redis-config
+        configMap:
+          name: redis-config
+      - name: tls-certs
+        secret:
+          secretName: redis-tls-certs
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd-encrypted
+      resources:
+        requests:
+          storage: 10Gi
+---
+# Redis Cluster Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-headless
+  namespace: healthcare-api
+  labels:
+    app: redis-cluster
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 6380
+    targetPort: 6380
+    name: redis-tls
+  - port: 16379
+    targetPort: 16379
+    name: gossip
+  selector:
+    app: redis-cluster
+---
+# Redis Cluster Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: healthcare-api
+  labels:
+    app: redis-cluster
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6380
+    targetPort: 6380
+    name: redis-tls
+  - port: 9121
+    targetPort: 9121
+    name: metrics
+  selector:
+    app: redis-cluster
+---
+# Redis Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: healthcare-api
+data:
+  redis.conf: |
+    # Redis Cluster Configuration for Healthcare API
+    # Security Settings
+    protected-mode yes
+    bind 0.0.0.0
+    
+    # Persistence Settings
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    appendonly yes
+    appendfsync everysec
+    no-appendfsync-on-rewrite no
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    
+    # Memory Management
+    maxmemory-policy allkeys-lru
+    
+    # Cluster Settings
+    cluster-enabled yes
+    cluster-require-full-coverage yes
+    cluster-node-timeout 15000
+    cluster-migration-barrier 1
+    
+    # Logging
+    loglevel notice
+    logfile ""
+    
+    # Connection Settings
+    tcp-keepalive 300
+    timeout 0
+    tcp-backlog 511
+    
+    # Database Settings
+    databases 16
+---
+# ServiceMonitor for Redis metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-cluster-metrics
+  namespace: healthcare-api
+  labels:
+    app: redis-cluster
+spec:
+  selector:
+    matchLabels:
+      app: redis-cluster
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics

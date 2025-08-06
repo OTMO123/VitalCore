@@ -1,0 +1,138 @@
+﻿{
+    "summary":  {
+                    "critical_tests":  5,
+                    "passed_tests":  0,
+                    "critical_passed":  0,
+                    "critical_failed":  5,
+                    "total_tests":  7,
+                    "failed_tests":  7,
+                    "total_issues":  7
+                },
+    "total_duration_minutes":  0.2,
+    "all_issues":  [
+                       "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                       "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                       "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                       "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                       "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                       "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                       "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                   ],
+    "end_time":  "2025-07-29 21:54:43",
+    "deployment_readiness":  {
+                                 "recommendations":  [
+                                                         "Address 7 identified issues before production deployment",
+                                                         "Critical system failures must be resolved immediately",
+                                                         "Optional system improvements recommended",
+                                                         "Review all test outputs and issue details",
+                                                         "Ensure monitoring and alerting systems are operational",
+                                                         "Verify backup and rollback procedures are tested"
+                                                     ],
+                                 "issues_blocking_deployment":  5,
+                                 "critical_systems_ok":  false,
+                                 "production_ready":  false
+                             },
+    "test_results":  [
+                         {
+                             "Output":  "Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                             "StartTime":  "\/Date(1753815274434)\/",
+                             "Passed":  false,
+                             "Critical":  true,
+                             "Name":  "Application Deployment",
+                             "Script":  "5_application_deployment.ps1",
+                             "ExitCode":  1,
+                             "EndTime":  "\/Date(1753815275624)\/",
+                             "Duration":  1.2,
+                             "Issues":  [
+                                            "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                                        ]
+                         },
+                         {
+                             "Output":  "Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                             "StartTime":  "\/Date(1753815275736)\/",
+                             "Passed":  false,
+                             "Critical":  false,
+                             "Name":  "Performance Validation",
+                             "Script":  "6_performance_validation.ps1",
+                             "ExitCode":  1,
+                             "EndTime":  "\/Date(1753815277828)\/",
+                             "Duration":  2.1,
+                             "Issues":  [
+                                            "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                                        ]
+                         },
+                         {
+                             "Output":  "Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                             "StartTime":  "\/Date(1753815277837)\/",
+                             "Passed":  false,
+                             "Critical":  false,
+                             "Name":  "Monitoring \u0026 Alerting",
+                             "Script":  "7_monitoring_alerting.ps1",
+                             "ExitCode":  1,
+                             "EndTime":  "\/Date(1753815278927)\/",
+                             "Duration":  1.1,
+                             "Issues":  [
+                                            "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                                        ]
+                         },
+                         {
+                             "Output":  "Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                             "StartTime":  "\/Date(1753815278932)\/",
+                             "Passed":  false,
+                             "Critical":  true,
+                             "Name":  "Database Migration",
+                             "Script":  "4_database_migration.ps1",
+                             "ExitCode":  1,
+                             "EndTime":  "\/Date(1753815280021)\/",
+                             "Duration":  1.1,
+                             "Issues":  [
+                                            "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                                        ]
+                         },
+                         {
+                             "Output":  "Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                             "StartTime":  "\/Date(1753815280029)\/",
+                             "Passed":  false,
+                             "Critical":  true,
+                             "Name":  "Infrastructure Validation",
+                             "Script":  "1_infrastructure_validation.ps1",
+                             "ExitCode":  1,
+                             "EndTime":  "\/Date(1753815281087)\/",
+                             "Duration":  1.1,
+                             "Issues":  [
+                                            "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                                        ]
+                         },
+                         {
+                             "Output":  "Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                             "StartTime":  "\/Date(1753815281101)\/",
+                             "Passed":  false,
+                             "Critical":  true,
+                             "Name":  "Application Configuration",
+                             "Script":  "2_application_configuration.ps1",
+                             "ExitCode":  1,
+                             "EndTime":  "\/Date(1753815282187)\/",
+                             "Duration":  1.1,
+                             "Issues":  [
+                                            "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                                        ]
+                         },
+                         {
+                             "Output":  "Не удается найти позиционный параметр, принимающий аргумент \"*.json\".",
+                             "StartTime":  "\/Date(1753815282197)\/",
+                             "Passed":  false,
+                             "Critical":  true,
+                             "Name":  "Security \u0026 Compliance",
+                             "Script":  "3_security_compliance.ps1",
+                             "ExitCode":  1,
+                             "EndTime":  "\/Date(1753815283264)\/",
+                             "Duration":  1.1,
+                             "Issues":  [
+                                            "Test execution failed: Не удается найти позиционный параметр, принимающий аргумент \"*.json\"."
+                                        ]
+                         }
+                     ],
+    "timestamp":  "20250729_215443",
+    "overall_status":  "NOT_PRODUCTION_READY",
+    "start_time":  "2025-07-29 21:54:34"
+}

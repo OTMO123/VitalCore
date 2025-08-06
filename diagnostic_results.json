@@ -1,0 +1,259 @@
+{
+  "timestamp": "2025-07-23T00:33:33.606434",
+  "diagnostic_mode": "SAFE_READ_ONLY",
+  "system_state": "PRESERVED",
+  "findings": [
+    {
+      "category": "Python",
+      "status": "OK",
+      "message": "Python version: 3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.606541"
+    },
+    {
+      "category": "Dependencies",
+      "status": "OK",
+      "message": "requirements.txt found",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.610376"
+    },
+    {
+      "category": "Dependencies",
+      "status": "ERROR",
+      "message": "Missing packages: 52",
+      "details": {
+        "missing": [
+          "fastapi",
+          "uvicorn[standard]",
+          "pydantic",
+          "pydantic-settings",
+          "sqlalchemy",
+          "psycopg2-binary",
+          "asyncpg",
+          "python-jose[cryptography]",
+          "passlib[bcrypt]",
+          "python-multipart"
+        ]
+      },
+      "timestamp": "2025-07-23T00:33:33.779017"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "app/core/config.py exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.789230"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "app/core/config.py has content (3592 bytes)",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.801691"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "docker-compose.yml exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.805852"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "docker-compose.yml has content (3599 bytes)",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.809689"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "alembic.ini exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.815830"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "alembic.ini has content (3086 bytes)",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.819611"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": ".env exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.823722"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": ".env has content (1050 bytes)",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.827909"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "Dockerfile exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.832189"
+    },
+    {
+      "category": "Config",
+      "status": "OK",
+      "message": "Dockerfile has content (1440 bytes)",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.835676"
+    },
+    {
+      "category": "Database",
+      "status": "OK",
+      "message": "PostgreSQL service found in docker-compose",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.850062"
+    },
+    {
+      "category": "Database",
+      "status": "OK",
+      "message": "Redis service found in docker-compose",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.850131"
+    },
+    {
+      "category": "Database",
+      "status": "OK",
+      "message": "PostgreSQL port 5432 configured",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.850145"
+    },
+    {
+      "category": "Database",
+      "status": "OK",
+      "message": "Redis port 6379 configured",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.850155"
+    },
+    {
+      "category": "Database",
+      "status": "OK",
+      "message": "Database migrations found: 13 files",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.878042"
+    },
+    {
+      "category": "Structure",
+      "status": "OK",
+      "message": "app/main.py exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.884640"
+    },
+    {
+      "category": "Structure",
+      "status": "OK",
+      "message": "app/__init__.py exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.891329"
+    },
+    {
+      "category": "Structure",
+      "status": "OK",
+      "message": "app/core/__init__.py exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.900650"
+    },
+    {
+      "category": "Structure",
+      "status": "OK",
+      "message": "app/modules/__init__.py exists",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:33.910050"
+    },
+    {
+      "category": "Structure",
+      "status": "OK",
+      "message": "Application modules: 11",
+      "details": {
+        "modules": [
+          "analytics",
+          "audit_logger",
+          "auth",
+          "clinical_workflows",
+          "dashboard",
+          "document_management",
+          "healthcare_records",
+          "iris_api",
+          "purge_scheduler",
+          "risk_stratification",
+          "security_audit"
+        ]
+      },
+      "timestamp": "2025-07-23T00:33:34.054050"
+    },
+    {
+      "category": "Docker",
+      "status": "OK",
+      "message": "Docker command available",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:34.360392"
+    },
+    {
+      "category": "Docker",
+      "status": "WARNING",
+      "message": "Docker daemon not accessible",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:34.719528"
+    },
+    {
+      "category": "Ports",
+      "status": "OK",
+      "message": "Port 8000 is available",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:34.729591"
+    },
+    {
+      "category": "Ports",
+      "status": "OK",
+      "message": "Port 5432 is available",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:34.729950"
+    },
+    {
+      "category": "Ports",
+      "status": "OK",
+      "message": "Port 6379 is available",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:34.730266"
+    },
+    {
+      "category": "Ports",
+      "status": "OK",
+      "message": "Port 3000 is available",
+      "details": {},
+      "timestamp": "2025-07-23T00:33:34.730629"
+    }
+  ],
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "category": "Critical Issues",
+      "action": "Fix critical errors first",
+      "details": "Found 1 critical issues that must be resolved"
+    },
+    {
+      "priority": "HIGH",
+      "category": "Dependencies",
+      "action": "Install missing Python packages",
+      "command": "pip install -r requirements.txt"
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "Docker",
+      "action": "Start Docker services",
+      "command": "docker-compose up -d"
+    }
+  ],
+  "safety_status": "PROTECTED",
+  "overall_status": "NEEDS_ATTENTION"
+}

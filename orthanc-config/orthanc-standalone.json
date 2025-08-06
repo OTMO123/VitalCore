@@ -1,0 +1,20 @@
+{
+  "Name": "IRIS_ORTHANC",
+  "HttpPort": 8042,
+  "DicomPort": 4242,
+  "StorageArea": "./data/orthanc/storage",
+  "IndexDirectory": "./data/orthanc/index",
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "admin": "admin123",
+    "iris_api": "secure_iris_key_2024"
+  },
+  "RemoteAccessAllowed": false,
+  "DicomAet": "IRIS_ORTHANC",
+  "DicomCheckModalityHost": false,
+  "DefaultEncoding": "Latin1",
+  "VerboseStartup": true,
+  "LogFile": "./logs/orthanc/orthanc.log",
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0
+}

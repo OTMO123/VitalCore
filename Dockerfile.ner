@@ -1,0 +1,42 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements for Medical NER service
+COPY requirements-ner.txt .
+
+# Install Python dependencies for Medical NER
+RUN pip install --no-cache-dir -r requirements-ner.txt
+
+# Download spaCy English model
+RUN python -m spacy download en_core_web_sm
+
+# Copy NER service code
+COPY app/modules/edge_ai/medical_ner_service.py ./
+COPY app/core/ ./core/
+
+# Create directories for models and cache
+RUN mkdir -p /models/ner /cache /app/logs
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV NER_CACHE_DIR=/cache
+ENV NER_LOG_LEVEL=INFO
+
+# Expose port for Medical NER service
+EXPOSE 8003
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+    CMD curl -f http://localhost:8003/health || exit 1
+
+# Run Medical NER service
+CMD ["python", "medical_ner_service.py"]

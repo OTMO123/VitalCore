@@ -1,0 +1,26 @@
+
+Clinical Workflows Test Execution Summary
+============================================================
+
+Execution Date: 2025-07-21 05:10:52
+Total Test Categories: 10
+Passed: 0
+Failed: 10
+Success Rate: 0.0%
+Total Duration: 0.00 seconds
+
+Test Category Results:
+------------------------------------------------------------
+❌ FAILED     fast                 (0.00s)\n❌ FAILED     unit                 (0.00s)\n❌ FAILED     integration          (0.00s)\n❌ FAILED     security             (0.00s)\n❌ FAILED     performance          (0.00s)\n❌ FAILED     e2e                  (0.00s)\n❌ FAILED     compliance-hipaa     (0.00s)\n❌ FAILED     compliance-soc2      (0.00s)\n❌ FAILED     compliance-fhir      (0.00s)\n❌ FAILED     security-audit       (0.00s)\n
+------------------------------------------------------------
+
+Detailed Results Available In:
+- JUnit XML: test-results-*.xml
+- Coverage Reports: htmlcov/
+- Benchmark Results: benchmark-results.json
+
+Enterprise Quality Gates:
+❌ All tests passing
+✅ Total duration < 30 minutes
+❌ Success rate >= 95%
+

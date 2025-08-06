@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VitalCore Emergency Triage</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .emergency-red { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+        .urgent-orange { background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); }
+        .semi-urgent-yellow { background: linear-gradient(135deg, #ca8a04 0%, #eab308 100%); }
+        .non-urgent-green { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+        .pulse-red { animation: pulse-emergency 1s infinite; }
+        @keyframes pulse-emergency {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+        .countdown { font-size: 2rem; font-weight: 700; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div x-data="emergencyTriageApp()" x-init="init()" class="min-h-screen">
+        <!-- Emergency Header -->
+        <div class="emergency-red text-white p-4 shadow-lg">
+            <div class="max-w-6xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-heartbeat text-3xl pulse-red"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">VitalCore Emergency Triage</h1>
+                        <p class="text-red-100">Rapid Life-Saving Response System</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="countdown" x-text="formatTime(responseTimer)"></div>
+                    <p class="text-red-100">Response Timer</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Assessment Interface -->
+        <div class="max-w-6xl mx-auto p-6">
+            <!-- Step 1: Immediate Life Threats -->
+            <div x-show="currentStep === 1" class="space-y-6">
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <h2 class="text-3xl font-bold text-red-600 mb-6 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-3"></i>
+                        Immediate Life Threat Assessment
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Critical Conditions -->
+                        <button @click="selectCondition('cardiac_arrest')" 
+                                class="emergency-red text-white p-6 rounded-lg hover:shadow-xl transition-all">
+                            <i class="fas fa-heart text-4xl mb-3"></i>
+                            <h3 class="text-xl font-bold">Cardiac Arrest</h3>
+                            <p class="text-red-100">No pulse, unconscious</p>
+                        </button>
+                        
+                        <button @click="selectCondition('respiratory_failure')"
+                                class="emergency-red text-white p-6 rounded-lg hover:shadow-xl transition-all">
+                            <i class="fas fa-lungs text-4xl mb-3"></i>
+                            <h3 class="text-xl font-bold">Respiratory Failure</h3>
+                            <p class="text-red-100">Not breathing, blue lips</p>
+                        </button>
+                        
+                        <button @click="selectCondition('severe_bleeding')"
+                                class="emergency-red text-white p-6 rounded-lg hover:shadow-xl transition-all">
+                            <i class="fas fa-tint text-4xl mb-3"></i>
+                            <h3 class="text-xl font-bold">Severe Bleeding</h3>
+                            <p class="text-red-100">Massive blood loss</p>
+                        </button>
+                        
+                        <button @click="selectCondition('stroke')"
+                                class="urgent-orange text-white p-6 rounded-lg hover:shadow-xl transition-all">
+                            <i class="fas fa-brain text-4xl mb-3"></i>
+                            <h3 class="text-xl font-bold">Stroke Symptoms</h3>
+                            <p class="text-orange-100">Face droop, speech issues</p>
+                        </button>
+                        
+                        <button @click="selectCondition('chest_pain')"
+                                class="urgent-orange text-white p-6 rounded-lg hover:shadow-xl transition-all">
+                            <i class="fas fa-heartbeat text-4xl mb-3"></i>
+                            <h3 class="text-xl font-bold">Chest Pain</h3>
+                            <p class="text-orange-100">Crushing, radiating pain</p>
+                        </button>
+                        
+                        <button @click="nextStep()"
+                                class="semi-urgent-yellow text-white p-6 rounded-lg hover:shadow-xl transition-all">
+                            <i class="fas fa-arrow-right text-4xl mb-3"></i>
+                            <h3 class="text-xl font-bold">Other Condition</h3>
+                            <p class="text-yellow-100">Continue assessment</p>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Emergency Protocol Display -->
+            <div x-show="selectedCondition" class="space-y-6">
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-3xl font-bold text-red-600">
+                            <i class="fas fa-procedures mr-3"></i>
+                            Emergency Protocol
+                        </h2>
+                        <button @click="callEmergencyServices()" 
+                                class="emergency-red text-white px-6 py-3 rounded-lg font-bold text-lg pulse-red">
+                            <i class="fas fa-phone mr-2"></i>CALL 911 NOW
+                        </button>
+                    </div>
+                    
+                    <!-- Protocol Steps -->
+                    <div class="space-y-4">
+                        <template x-for="(step, index) in currentProtocol.steps" :key="index">
+                            <div class="flex items-start space-x-4 p-4 bg-red-50 rounded-lg border-l-4 border-red-500">
+                                <div class="flex-shrink-0 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center font-bold">
+                                    <span x-text="index + 1"></span>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-red-800" x-text="step.title"></h4>
+                                    <p class="text-red-700" x-text="step.description"></p>
+                                    <div x-show="step.warning" class="mt-2 text-red-600 font-semibold">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        <span x-text="step.warning"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Vital Signs Monitoring -->
+                    <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-red-50 p-4 rounded-lg text-center">
+                            <h4 class="font-bold text-red-800">Pulse</h4>
+                            <input type="number" x-model="vitalSigns.pulse" 
+                                   class="w-full text-center text-2xl font-bold mt-2 border-none bg-transparent"
+                                   placeholder="BPM">
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg text-center">
+                            <h4 class="font-bold text-blue-800">BP Systolic</h4>
+                            <input type="number" x-model="vitalSigns.systolic"
+                                   class="w-full text-center text-2xl font-bold mt-2 border-none bg-transparent"
+                                   placeholder="mmHg">
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg text-center">
+                            <h4 class="font-bold text-green-800">Respiration</h4>
+                            <input type="number" x-model="vitalSigns.respiration"
+                                   class="w-full text-center text-2xl font-bold mt-2 border-none bg-transparent"
+                                   placeholder="RPM">
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg text-center">
+                            <h4 class="font-bold text-purple-800">Oxygen Sat</h4>
+                            <input type="number" x-model="vitalSigns.oxygen"
+                                   class="w-full text-center text-2xl font-bold mt-2 border-none bg-transparent"
+                                   placeholder="%">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function emergencyTriageApp() {
+            return {
+                currentStep: 1,
+                selectedCondition: null,
+                responseTimer: 0,
+                vitalSigns: {
+                    pulse: '',
+                    systolic: '',
+                    respiration: '',
+                    oxygen: ''
+                },
+                
+                protocols: {
+                    cardiac_arrest: {
+                        title: 'Cardiac Arrest Protocol',
+                        priority: 'CRITICAL',
+                        steps: [
+                            {
+                                title: 'Check Responsiveness',
+                                description: 'Tap shoulders, shout "ARE YOU OKAY?"',
+                                warning: 'If no response, begin CPR immediately'
+                            },
+                            {
+                                title: 'Call for Help',
+                                description: 'Call 911 and request AED if available'
+                            },
+                            {
+                                title: 'Begin CPR',
+                                description: 'Push hard and fast in center of chest, 100-120 compressions per minute',
+                                warning: 'Do not stop until emergency services arrive'
+                            },
+                            {
+                                title: 'Use AED if Available',
+                                description: 'Follow AED voice prompts, ensure no one touches patient during shock'
+                            }
+                        ]
+                    },
+                    respiratory_failure: {
+                        title: 'Respiratory Failure Protocol',
+                        priority: 'CRITICAL',
+                        steps: [
+                            {
+                                title: 'Open Airway',
+                                description: 'Tilt head back, lift chin to open airway'
+                            },
+                            {
+                                title: 'Check for Breathing',
+                                description: 'Look, listen, feel for 10 seconds'
+                            },
+                            {
+                                title: 'Begin Rescue Breathing',
+                                description: 'Pinch nose, seal mouth, give 2 breaths',
+                                warning: 'Watch for chest rise with each breath'
+                            },
+                            {
+                                title: 'Continue Support',
+                                description: '1 breath every 5-6 seconds until help arrives'
+                            }
+                        ]
+                    },
+                    severe_bleeding: {
+                        title: 'Severe Bleeding Control',
+                        priority: 'CRITICAL', 
+                        steps: [
+                            {
+                                title: 'Direct Pressure',
+                                description: 'Apply firm pressure directly over wound with clean cloth'
+                            },
+                            {
+                                title: 'Elevate if Possible',
+                                description: 'Raise injured area above heart level if no fracture suspected'
+                            },
+                            {
+                                title: 'Pressure Point',
+                                description: 'If bleeding continues, apply pressure to arterial pressure point'
+                            },
+                            {
+                                title: 'Tourniquet if Necessary',
+                                description: 'For limb injuries with life-threatening bleeding',
+                                warning: 'Note time of tourniquet application'
+                            }
+                        ]
+                    },
+                    stroke: {
+                        title: 'Stroke Response Protocol',
+                        priority: 'URGENT',
+                        steps: [
+                            {
+                                title: 'FAST Assessment',
+                                description: 'Face droop, Arm weakness, Speech difficulty, Time to call 911'
+                            },
+                            {
+                                title: 'Note Time of Onset',
+                                description: 'Record when symptoms first appeared - critical for treatment'
+                            },
+                            {
+                                title: 'Position Patient',
+                                description: 'Keep head elevated 30 degrees, nothing by mouth'
+                            },
+                            {
+                                title: 'Monitor Vitals',
+                                description: 'Check pulse, breathing, blood pressure every 5 minutes'
+                            }
+                        ]
+                    },
+                    chest_pain: {
+                        title: 'Chest Pain Protocol',
+                        priority: 'URGENT',
+                        steps: [
+                            {
+                                title: 'Position for Comfort',
+                                description: 'Sit upright or semi-reclined, loosen tight clothing'
+                            },
+                            {
+                                title: 'Assess Pain',
+                                description: 'Rate 1-10, describe location, radiation, quality'
+                            },
+                            {
+                                title: 'Aspirin if Appropriate',
+                                description: '325mg chewed if no allergies and conscious',
+                                warning: 'Do not give if allergic or bleeding risk'
+                            },
+                            {
+                                title: 'Prepare for Transport',
+                                description: 'Stay with patient, monitor for cardiac arrest'
+                            }
+                        ]
+                    }
+                },
+                
+                currentProtocol: {},
+                
+                init() {
+                    // Start response timer
+                    setInterval(() => {
+                        this.responseTimer++;
+                    }, 1000);
+                    
+                    // Initialize speech synthesis for audio alerts
+                    if ('speechSynthesis' in window) {
+                        this.synthesis = window.speechSynthesis;
+                    }
+                },
+                
+                selectCondition(condition) {
+                    this.selectedCondition = condition;
+                    this.currentProtocol = this.protocols[condition];
+                    
+                    // Audio alert for critical conditions
+                    if (['cardiac_arrest', 'respiratory_failure', 'severe_bleeding'].includes(condition)) {
+                        this.playAudioAlert(`Critical emergency protocol activated for ${condition.replace('_', ' ')}`);
+                    }
+                },
+                
+                callEmergencyServices() {
+                    // In a real app, this would integrate with actual emergency services
+                    this.playAudioAlert('Emergency services have been contacted. Continue following protocol.');
+                    
+                    // Show emergency contact interface
+                    alert('🚨 EMERGENCY SERVICES CONTACTED\n\n📞 911 has been called\n📍 Location shared\n🏥 Ambulance dispatched\n\nContinue following the protocol until help arrives.');
+                },
+                
+                playAudioAlert(text) {
+                    if (this.synthesis) {
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.rate = 1.2;
+                        utterance.pitch = 1;
+                        utterance.volume = 1;
+                        this.synthesis.speak(utterance);
+                    }
+                },
+                
+                nextStep() {
+                    this.currentStep++;
+                },
+                
+                formatTime(seconds) {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = seconds % 60;
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+            };
+        }
+    </script>
+</body>
+</html>

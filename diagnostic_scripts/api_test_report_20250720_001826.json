@@ -1,0 +1,130 @@
+﻿{
+    "passed_tests":  0,
+    "timestamp":  "2025-07-20 00:18:26",
+    "failed_tests":  1,
+    "total_tests":  1,
+    "recommendations":  [
+                            "Fix database import issues",
+                            "Correct dependency injection",
+                            "Ensure Docker services running",
+                            "Verify authentication flow"
+                        ],
+    "success_rate":  0,
+    "test_results":  [
+                         {
+                             "Message":  "Starting comprehensive API endpoint testing...",
+                             "Timestamp":  "00:17:56.147",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Base URL: http://localhost:8000",
+                             "Timestamp":  "00:17:56.153",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Timestamp: 2025-07-20 00:17:56",
+                             "Timestamp":  "00:17:56.166",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "Testing Authentication",
+                             "Timestamp":  "00:17:56.181",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "REQUEST: POST /api/v1/auth/login",
+                             "Timestamp":  "00:17:56.218",
+                             "Level":  "DEBUG"
+                         },
+                         {
+                             "Message":  "ERROR: POST /api/v1/auth/login - Время ожидания операции истекло",
+                             "Timestamp":  "00:18:26.244",
+                             "Level":  "ERROR"
+                         },
+                         {
+                             "Message":  "Authentication failed: 0 - {\r\n    \"error\":  \"Время ожидания операции истекло\"\r\n}",
+                             "Timestamp":  "00:18:26.254",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "Cannot continue without authentication",
+                             "Timestamp":  "00:18:26.257",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "COMPREHENSIVE 5 WHYS ANALYSIS",
+                             "Timestamp":  "00:18:26.262",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "OVERALL RESULTS:",
+                             "Timestamp":  "00:18:26.277",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Total Tests: 1",
+                             "Timestamp":  "00:18:26.281",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "  Passed: 0",
+                             "Timestamp":  "00:18:26.284",
+                             "Level":  "PASS"
+                         },
+                         {
+                             "Message":  "  Failed: 1",
+                             "Timestamp":  "00:18:26.298",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "  Success Rate: 0%",
+                             "Timestamp":  "00:18:26.303",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "ROOT CAUSE ANALYSIS:",
+                             "Timestamp":  "00:18:26.306",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "NEEDS WORK - Major issues detected",
+                             "Timestamp":  "00:18:26.317",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "Recommendation: Systematic debugging required",
+                             "Timestamp":  "00:18:26.321",
+                             "Level":  "FAIL"
+                         },
+                         {
+                             "Message":  "SPECIFIC FIXES NEEDED:",
+                             "Timestamp":  "00:18:26.322",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "1. Check Docker services are running",
+                             "Timestamp":  "00:18:26.326",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "2. Verify database connectivity",
+                             "Timestamp":  "00:18:26.328",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "3. Fix import errors (database_unified vs database_advanced)",
+                             "Timestamp":  "00:18:26.334",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "4. Correct dependency injection issues",
+                             "Timestamp":  "00:18:26.339",
+                             "Level":  "INFO"
+                         },
+                         {
+                             "Message":  "5. Ensure service layer properly handles encryption/decryption",
+                             "Timestamp":  "00:18:26.341",
+                             "Level":  "INFO"
+                         }
+                     ]
+}

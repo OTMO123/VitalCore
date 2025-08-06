@@ -1,0 +1,27 @@
+﻿# Healthcare Platform - Secure Environment Variables
+# Generated: 2025-07-29 23:05:43
+
+# Core Application
+$env:SECRET_KEY = "a6XXvUDfk5h9KpWg8HANWTc2OwFd6WM/thUUtzM4Ymh6g2fIXinAjqh9O081PVmGAnu6Lu3gkBMCqNrqAqmepw=="
+$env:ENCRYPTION_KEY = "FbUL8MVZEB+E49SGoTfkiF6gE/5epzWI0KEIPwZijjI="
+$env:ENVIRONMENT = "development"
+$env:DEBUG = "true"
+
+# JWT Authentication
+$env:JWT_SECRET_KEY = "NNPQ6t9CJuDv6pg79YOsak5roYbxlHSBAukyjbyR2nuI0pwHRlj9zqcLpy0AGZFCTCsSnPkp9GR6D3lE5mA54A=="
+
+# Database Configuration
+$env:DATABASE_URL = "postgresql://postgres:password@localhost:5432/iris_db"
+$env:REDIS_URL = "redis://localhost:6379/0"
+
+# PHI/PII Encryption (HIPAA Compliance)
+$env:PHI_ENCRYPTION_KEY = "mjP3gWlhNom8oh1F1w0DgGYGtXGPLkVZE9dE84ctp3M="
+$env:PII_ENCRYPTION_KEY = "mjP3gWlhNom8oh1F1w0DgGYGtXGPLkVZE9dE84ctp3M="
+
+# MinIO Object Storage
+$env:MINIO_ACCESS_KEY = "H7PtQkdADthDRFSdpQXa"
+$env:MINIO_SECRET_KEY = "0a7I+21FxqjVPI7ten8KviwWHgP3yDRhIGrVSdiKNcZ2uRH3ITmQnA=="
+
+# SOC2 Audit Logging
+$env:AUDIT_SIGNING_KEY = "1fa3669240cabb3c9e4867dd4025ec175e73cc8034f17bcc8457a573744b6af86d7237a40e103a75cb68f40461ebc7104baa471119c2e0083b30e8cd9b3731e6"
+$env:SOC2_COMPLIANCE_MODE = "true"

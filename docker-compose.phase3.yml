@@ -1,0 +1,184 @@
+version: '3.8'
+
+services:
+  # GRAFANA ADVANCED DASHBOARDS
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: iris_grafana_p3
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=grafana_admin_password
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=strict
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - iris_network
+    external_links:
+      - iris_prometheus_p1:prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # JAEGER DISTRIBUTED TRACING
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    container_name: iris_jaeger_p3
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - QUERY_BASE_PATH=/jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector HTTP
+      - "14250:14250"  # Jaeger collector gRPC
+      - "9411:9411"    # Zipkin collector
+    volumes:
+      - jaeger_data:/badger
+    networks:
+      - iris_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:14268/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ELASTICSEARCH LOG AGGREGATION
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: iris_elasticsearch_p3
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - iris_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # KIBANA DASHBOARD
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: iris_kibana_p3
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_BASEPATH=/kibana
+      - SERVER_REWRITEBASEPATH=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - iris_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # LOGSTASH LOG PROCESSING
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: iris_logstash_p3
+    volumes:
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./monitoring/logstash/config:/usr/share/logstash/config:ro
+      - ./logs:/logs:ro
+    ports:
+      - "5044:5044"  # Beats input
+      - "9600:9600"  # API
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - iris_network
+    restart: unless-stopped
+
+  # ADVANCED APPLICATION WITH FULL OBSERVABILITY
+  app-advanced:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iris_app_advanced_p3
+    environment:
+      - DEBUG=false
+      - ENVIRONMENT=production
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - DATABASE_URL=postgresql://postgres:password@iris_postgres_p1:5432/iris_db
+      - REDIS_URL=redis://:redis_password@iris_redis_p1:6379/0
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - PHI_ENCRYPTION_KEY=${PHI_ENCRYPTION_KEY}
+      - SOC2_COMPLIANCE_MODE=true
+      - AUDIT_SIGNING_KEY=${AUDIT_SIGNING_KEY}
+      - DEPLOYMENT_PHASE=3
+      # Observability Configuration
+      - PROMETHEUS_ENDPOINT=http://iris_prometheus_p1:9090
+      - JAEGER_ENDPOINT=http://jaeger:14268
+      - ELASTICSEARCH_ENDPOINT=http://elasticsearch:9200
+      - TRACING_ENABLED=true
+      - LOG_AGGREGATION_ENABLED=true
+      - ADVANCED_MONITORING_ENABLED=true
+      # Phase 2 AI/ML Configuration
+      - MILVUS_HOST=milvus-standalone
+      - MILVUS_PORT=19530
+      - ORTHANC_URL=http://orthanc:8042
+      - ORTHANC_USERNAME=iris_api
+      - ORTHANC_PASSWORD=iris_key
+      - TENSORFLOW_SERVING_URL=http://tensorflow-serving:8501
+      - VECTOR_DB_ENABLED=true
+      - DICOM_ENABLED=true
+      - ML_MODELS_ENABLED=true
+    ports:
+      - "8002:8000"  # Advanced app on different port
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - iris_network
+    external_links:
+      - iris_postgres_p1:postgres
+      - iris_redis_p1:redis
+      - iris_minio_p1:minio
+      - iris_prometheus_p1:prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  grafana_data:
+  jaeger_data:
+  elasticsearch_data:
+
+networks:
+  iris_network:
+    external: true

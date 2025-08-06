@@ -1,0 +1,107 @@
+﻿# Prometheus Configuration for Healthcare Records Backend
+# Production-grade monitoring with healthcare-specific metrics
+
+global:
+  scrape_interval: 15s # Scrape targets every 15 seconds
+  evaluation_interval: 15s # Evaluate rules every 15 seconds
+  external_labels:
+    cluster: 'healthcare-backend'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load rules and fire alerts
+rule_files:
+  - "alert_rules.yml"
+  - "healthcare_rules.yml"
+  - "sla_rules.yml"
+
+# Scrape configuration
+scrape_configs:
+  # Healthcare Backend API
+  - job_name: 'healthcare-api'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    scheme: http
+      username: 'prometheus'
+      password: 'healthcare_metrics_2025'
+    relabel_configs:
+        target_label: __param_target
+        target_label: instance
+      - target_label: __address__
+        replacement: 'localhost:8000'
+
+  # PostgreSQL Database Metrics
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Redis Cache Metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+
+  # Node/System Metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # NGINX/Load Balancer
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 15s
+
+  # Application-specific metrics
+  - job_name: 'healthcare-custom-metrics'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/api/v1/metrics/healthcare'
+    scrape_interval: 30s
+      username: 'prometheus'
+      password: 'healthcare_metrics_2025'
+
+  # Blackbox monitoring for external dependencies
+  - job_name: 'blackbox-iris-api'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - https://sandbox.iris-system.com/v1/health
+    relabel_configs:
+        target_label: __param_target
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # SSL Certificate monitoring
+  - job_name: 'ssl-certificates'
+    metrics_path: /probe
+    params:
+      module: [tls_connect]
+    static_configs:
+      - targets:
+        - api.yourdomain.com:443
+        - fhir.yourdomain.com:443
+    relabel_configs:
+        target_label: __param_target
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+      username: "healthcare_system"
+      password: "remote_write_token"
+

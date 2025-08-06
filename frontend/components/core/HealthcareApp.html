@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedFlow AI - Healthcare Intelligence Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .healthcare-gradient { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .danger-gradient { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); }
+        .success-gradient { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .chat-input { transition: all 0.3s ease; }
+        .chat-input:focus { transform: scale(1.02); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <div x-data="healthcareApp()" class="min-h-screen">
+        <!-- Header -->
+        <header class="glass border-b border-gray-200 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <!-- Logo -->
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 healthcare-gradient rounded-xl flex items-center justify-center">
+                            <i class="fas fa-brain text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-900">MedFlow AI</h1>
+                            <p class="text-xs text-gray-500">Healthcare Intelligence</p>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <nav class="hidden md:flex items-center space-x-8">
+                        <button @click="currentView = 'dashboard'" 
+                                :class="currentView === 'dashboard' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-chart-line mr-2"></i>Dashboard
+                        </button>
+                        <button @click="currentView = 'patients'" 
+                                :class="currentView === 'patients' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-users mr-2"></i>Patients
+                        </button>
+                        <button @click="currentView = 'ai'" 
+                                :class="currentView === 'ai' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-robot mr-2"></i>AI Assistant
+                        </button>
+                        <button @click="currentView = 'compliance'" 
+                                :class="currentView === 'compliance' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-900'"
+                                class="pb-4 px-1 border-b-2 border-transparent transition-colors">
+                            <i class="fas fa-shield-alt mr-2"></i>Compliance
+                        </button>
+                    </nav>
+
+                    <!-- User Menu -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Notifications -->
+                        <div class="relative">
+                            <button @click="showNotifications = !showNotifications" class="p-2 text-gray-600 hover:text-gray-900 transition-colors">
+                                <i class="fas fa-bell text-lg"></i>
+                                <span x-show="notifications.length > 0" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center" x-text="notifications.length"></span>
+                            </button>
+                        </div>
+
+                        <!-- User Profile -->
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span class="text-white text-sm font-medium">JD</span>
+                            </div>
+                            <div class="hidden md:block">
+                                <p class="text-sm font-medium">Dr. Jane Doe</p>
+                                <p class="text-xs text-gray-500">Chief Medical Officer</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Dashboard View -->
+            <div x-show="currentView === 'dashboard'" x-transition>
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Healthcare Dashboard</h2>
+                    <p class="text-gray-600">Real-time insights into your healthcare operations</p>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Patients</p>
+                                <p class="text-3xl font-bold text-gray-900" x-text="dashboard.totalPatients"></p>
+                                <p class="text-sm text-green-600 mt-1">
+                                    <i class="fas fa-arrow-up mr-1"></i>12% from last month
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 success-gradient rounded-lg flex items-center justify-center">
+                                <i class="fas fa-users text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Immunizations</p>
+                                <p class="text-3xl font-bold text-gray-900" x-text="dashboard.immunizations"></p>
+                                <p class="text-sm text-blue-600 mt-1">
+                                    <i class="fas fa-syringe mr-1"></i>Today: 24 administered
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 healthcare-gradient rounded-lg flex items-center justify-center">
+                                <i class="fas fa-syringe text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">AI Predictions</p>
+                                <p class="text-3xl font-bold text-gray-900" x-text="dashboard.aiPredictions"></p>
+                                <p class="text-sm text-purple-600 mt-1">
+                                    <i class="fas fa-brain mr-1"></i>96.2% accuracy
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-brain text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Compliance Score</p>
+                                <p class="text-3xl font-bold text-gray-900" x-text="dashboard.complianceScore + '%'"></p>
+                                <p class="text-sm text-green-600 mt-1">
+                                    <i class="fas fa-shield-alt mr-1"></i>SOC2 + HIPAA
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 success-gradient rounded-lg flex items-center justify-center">
+                                <i class="fas fa-shield-alt text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts and Analytics -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Patient Activity Chart -->
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Patient Activity</h3>
+                        <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                            <p class="text-gray-500">Chart visualization goes here</p>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+                        <div class="space-y-4">
+                            <template x-for="activity in recentActivities" :key="activity.id">
+                                <div class="flex items-start space-x-3">
+                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <i :class="activity.icon" class="text-blue-600 text-sm"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium text-gray-900" x-text="activity.title"></p>
+                                        <p class="text-xs text-gray-500" x-text="activity.description"></p>
+                                        <p class="text-xs text-gray-400 mt-1" x-text="activity.time"></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patients View -->
+            <div x-show="currentView === 'patients'" x-transition>
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Patient Management</h2>
+                    <p class="text-gray-600">FHIR R4 compliant patient records with PHI encryption</p>
+                </div>
+
+                <!-- Patient Search -->
+                <div class="glass rounded-xl p-6 border border-gray-200 mb-8">
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="flex-1">
+                            <input type="text" 
+                                   x-model="patientSearch"
+                                   placeholder="Search patients by name, MRN, or condition..."
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                        </div>
+                        <button class="healthcare-gradient text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all">
+                            <i class="fas fa-search mr-2"></i>Search
+                        </button>
+                        <button class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>New Patient
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Patient Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <template x-for="patient in patients" :key="patient.id">
+                        <div class="glass rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all cursor-pointer">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <span class="text-blue-600 font-semibold" x-text="patient.initials"></span>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900" x-text="patient.name"></h3>
+                                        <p class="text-sm text-gray-500" x-text="'MRN: ' + patient.mrn"></p>
+                                    </div>
+                                </div>
+                                <span :class="patient.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                                      class="px-2 py-1 text-xs rounded-full" x-text="patient.status"></span>
+                            </div>
+                            
+                            <div class="space-y-2 text-sm text-gray-600">
+                                <p><i class="fas fa-birthday-cake mr-2"></i><span x-text="patient.age + ' years old'"></span></p>
+                                <p><i class="fas fa-venus-mars mr-2"></i><span x-text="patient.gender"></span></p>
+                                <p><i class="fas fa-calendar mr-2"></i>Last visit: <span x-text="patient.lastVisit"></span></p>
+                            </div>
+
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-gray-500">Risk Score</span>
+                                    <div class="flex items-center space-x-1">
+                                        <div :class="patient.riskScore < 30 ? 'bg-green-500' : patient.riskScore < 70 ? 'bg-yellow-500' : 'bg-red-500'"
+                                             class="w-16 h-2 rounded-full"></div>
+                                        <span class="text-xs font-medium" x-text="patient.riskScore + '%'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- AI Assistant View -->
+            <div x-show="currentView === 'ai'" x-transition>
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Gemma 3n AI Assistant</h2>
+                    <p class="text-gray-600">Clinical decision support powered by multimodal AI</p>
+                </div>
+
+                <!-- Chat Interface -->
+                <div class="glass rounded-xl border border-gray-200 h-96 flex flex-col">
+                    <!-- Chat Messages -->
+                    <div class="flex-1 p-6 overflow-y-auto">
+                        <div class="space-y-4">
+                            <template x-for="message in aiMessages" :key="message.id">
+                                <div :class="message.sender === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                                    <div :class="message.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'"
+                                         class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
+                                        <p class="text-sm" x-text="message.content"></p>
+                                        <p class="text-xs opacity-75 mt-1" x-text="message.timestamp"></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="p-6 border-t border-gray-200">
+                        <div class="flex space-x-3">
+                            <input type="text" 
+                                   x-model="aiInput"
+                                   @keyup.enter="sendAIMessage()"
+                                   placeholder="Ask about patient diagnosis, treatment options, or clinical guidelines..."
+                                   class="flex-1 px-4 py-3 border border-gray-300 rounded-lg chat-input focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <button @click="sendAIMessage()" 
+                                    class="healthcare-gradient text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Features -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                    <div class="glass rounded-xl p-6 border border-gray-200 text-center">
+                        <div class="w-16 h-16 healthcare-gradient rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-stethoscope text-white text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Clinical Analysis</h3>
+                        <p class="text-sm text-gray-600">AI-powered diagnostic assistance and clinical reasoning</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-gray-200 text-center">
+                        <div class="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-eye text-white text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Multimodal AI</h3>
+                        <p class="text-sm text-gray-600">Analyze text, images, and medical data simultaneously</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-gray-200 text-center">
+                        <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-shield-alt text-white text-2xl"></i>
+                        </div>
+                        <h3 class="font-semibold text-gray-900 mb-2">Privacy First</h3>
+                        <p class="text-sm text-gray-600">On-device processing, never send PHI to cloud</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compliance View -->
+            <div x-show="currentView === 'compliance'" x-transition>
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Compliance Dashboard</h2>
+                    <p class="text-gray-600">SOC2 Type II + HIPAA compliance monitoring</p>
+                </div>
+
+                <!-- Compliance Status -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-gray-900">SOC2 Type II</h3>
+                            <span class="bg-green-100 text-green-800 px-3 py-1 text-sm rounded-full">Compliant</span>
+                        </div>
+                        <p class="text-3xl font-bold text-green-600 mb-2">98.7%</p>
+                        <p class="text-sm text-gray-600">Last audit: 2024-01-15</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-gray-900">HIPAA</h3>
+                            <span class="bg-green-100 text-green-800 px-3 py-1 text-sm rounded-full">Compliant</span>
+                        </div>
+                        <p class="text-3xl font-bold text-green-600 mb-2">99.1%</p>
+                        <p class="text-sm text-gray-600">PHI properly encrypted</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-6 border border-gray-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-gray-900">FHIR R4</h3>
+                            <span class="bg-green-100 text-green-800 px-3 py-1 text-sm rounded-full">Compliant</span>
+                        </div>
+                        <p class="text-3xl font-bold text-green-600 mb-2">96.4%</p>
+                        <p class="text-sm text-gray-600">Interoperability ready</p>
+                    </div>
+                </div>
+
+                <!-- Audit Log Viewer -->
+                <div class="glass rounded-xl p-6 border border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Audit Events</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3">Timestamp</th>
+                                    <th class="text-left py-3">Event Type</th>
+                                    <th class="text-left py-3">User</th>
+                                    <th class="text-left py-3">Resource</th>
+                                    <th class="text-left py-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="log in auditLogs" :key="log.id">
+                                    <tr class="border-b border-gray-100">
+                                        <td class="py-3" x-text="log.timestamp"></td>
+                                        <td class="py-3" x-text="log.eventType"></td>
+                                        <td class="py-3" x-text="log.user"></td>
+                                        <td class="py-3" x-text="log.resource"></td>
+                                        <td class="py-3">
+                                            <span :class="log.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                                                  class="px-2 py-1 text-xs rounded-full" x-text="log.status"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Notifications Panel -->
+        <div x-show="showNotifications" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 transform scale-95"
+             x-transition:enter-end="opacity-100 transform scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 transform scale-100"
+             x-transition:leave-end="opacity-0 transform scale-95"
+             class="fixed top-16 right-4 w-80 glass rounded-xl border border-gray-200 p-4 z-50">
+            <h3 class="font-semibold text-gray-900 mb-3">Notifications</h3>
+            <div class="space-y-3">
+                <template x-for="notification in notifications" :key="notification.id">
+                    <div class="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                        <div :class="notification.type === 'alert' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'"
+                             class="w-8 h-8 rounded-full flex items-center justify-center">
+                            <i :class="notification.icon" class="text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900" x-text="notification.title"></p>
+                            <p class="text-xs text-gray-600" x-text="notification.message"></p>
+                            <p class="text-xs text-gray-400 mt-1" x-text="notification.time"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function healthcareApp() {
+            return {
+                currentView: 'dashboard',
+                showNotifications: false,
+                patientSearch: '',
+                aiInput: '',
+                
+                // Dashboard data
+                dashboard: {
+                    totalPatients: 12847,
+                    immunizations: 3421,
+                    aiPredictions: 156,
+                    complianceScore: 98.7
+                },
+
+                // Recent activities
+                recentActivities: [
+                    {
+                        id: 1,
+                        icon: 'fas fa-syringe',
+                        title: 'COVID-19 Vaccination',
+                        description: 'Patient #12847 received Pfizer booster',
+                        time: '2 minutes ago'
+                    },
+                    {
+                        id: 2,
+                        icon: 'fas fa-brain',
+                        title: 'AI Risk Assessment',
+                        description: 'High-risk patient identified for diabetes',
+                        time: '5 minutes ago'
+                    },
+                    {
+                        id: 3,
+                        icon: 'fas fa-file-medical',
+                        title: 'New Patient Record',
+                        description: 'John Smith registered with FHIR compliance',
+                        time: '10 minutes ago'
+                    }
+                ],
+
+                // Patient data
+                patients: [
+                    {
+                        id: 1,
+                        name: 'Sarah Connor',
+                        initials: 'SC',
+                        mrn: 'MRN-001',
+                        age: 34,
+                        gender: 'Female',
+                        status: 'active',
+                        lastVisit: '2024-01-10',
+                        riskScore: 25
+                    },
+                    {
+                        id: 2,
+                        name: 'John Smith',
+                        initials: 'JS',
+                        mrn: 'MRN-002',
+                        age: 67,
+                        gender: 'Male',
+                        status: 'active',
+                        lastVisit: '2024-01-08',
+                        riskScore: 85
+                    },
+                    {
+                        id: 3,
+                        name: 'Maria Garcia',
+                        initials: 'MG',
+                        mrn: 'MRN-003',
+                        age: 29,
+                        gender: 'Female',
+                        status: 'active',
+                        lastVisit: '2024-01-12',
+                        riskScore: 15
+                    }
+                ],
+
+                // AI chat messages
+                aiMessages: [
+                    {
+                        id: 1,
+                        sender: 'ai',
+                        content: 'Hello! I\'m your AI healthcare assistant. I can help with clinical decisions, patient analysis, and medical guidelines. What would you like to know?',
+                        timestamp: '10:30 AM'
+                    }
+                ],
+
+                // Notifications
+                notifications: [
+                    {
+                        id: 1,
+                        type: 'alert',
+                        icon: 'fas fa-exclamation-triangle',
+                        title: 'High-Risk Patient Alert',
+                        message: 'Patient #12847 shows elevated diabetes risk',
+                        time: '5 mins ago'
+                    },
+                    {
+                        id: 2,
+                        type: 'info',
+                        icon: 'fas fa-info-circle',
+                        title: 'System Update',
+                        message: 'Gemma 3n model updated to v2.1',
+                        time: '1 hour ago'
+                    }
+                ],
+
+                // Audit logs
+                auditLogs: [
+                    {
+                        id: 1,
+                        timestamp: '2024-01-15 10:30:15',
+                        eventType: 'PHI_ACCESS',
+                        user: 'Dr. Jane Doe',
+                        resource: 'Patient/12847',
+                        status: 'success'
+                    },
+                    {
+                        id: 2,
+                        timestamp: '2024-01-15 10:28:42',
+                        eventType: 'IMMUNIZATION_CREATE',
+                        user: 'Nurse Smith',
+                        resource: 'Immunization/3421',
+                        status: 'success'
+                    },
+                    {
+                        id: 3,
+                        timestamp: '2024-01-15 10:25:17',
+                        eventType: 'LOGIN',
+                        user: 'Dr. Johnson',
+                        resource: 'System',
+                        status: 'success'
+                    }
+                ],
+
+                // Methods
+                sendAIMessage() {
+                    if (this.aiInput.trim()) {
+                        // Add user message
+                        this.aiMessages.push({
+                            id: Date.now(),
+                            sender: 'user',
+                            content: this.aiInput,
+                            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                        });
+
+                        // Simulate AI response
+                        setTimeout(() => {
+                            this.aiMessages.push({
+                                id: Date.now() + 1,
+                                sender: 'ai',
+                                content: 'Based on the clinical data, I recommend reviewing the patient\'s recent lab results and considering a consultation with a specialist. The risk stratification model suggests monitoring for complications.',
+                                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                            });
+                        }, 1000);
+
+                        this.aiInput = '';
+                    }
+                }
+            }
+        }
+
+        // API integration functions
+        const API_BASE = 'http://localhost:8000/api/v1';
+
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/stats`);
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+                return null;
+            }
+        }
+
+        async function fetchPatients(filters = {}) {
+            try {
+                const params = new URLSearchParams(filters);
+                const response = await fetch(`${API_BASE}/fhir/Patient?${params}`);
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching patients:', error);
+                return [];
+            }
+        }
+
+        async function fetchAuditLogs() {
+            try {
+                const response = await fetch(`${API_BASE}/audit-logs/logs`);
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching audit logs:', error);
+                return [];
+            }
+        }
+    </script>
+</body>
+</html>

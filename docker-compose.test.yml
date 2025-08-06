@@ -1,0 +1,126 @@
+# Docker Compose configuration for testing environment
+# This provides all external services needed for integration tests
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Testing
+  test-postgres:
+    image: postgres:15-alpine
+    container_name: iris-test-postgres
+    environment:
+      POSTGRES_DB: test_iris_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_INITDB_ARGS: "--auth-host=trust"
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./init-test.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_iris_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Redis for Testing
+  test-redis:
+    image: redis:7-alpine
+    container_name: iris-test-redis
+    ports:
+      - "6380:6379"  # Different port to avoid conflicts
+    volumes:
+      - test_redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # Mock IRIS API Server
+  mock-iris-api:
+    image: wiremock/wiremock:latest
+    container_name: iris-mock-api
+    ports:
+      - "8001:8080"
+    volumes:
+      - ./app/tests/mock_data/wiremock:/home/wiremock
+    command: --port 8080 --verbose --global-response-templating
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/__admin/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - test-network
+
+  # Test Data Seeder (Optional)
+  test-data-seeder:
+    build:
+      context: .
+      dockerfile: Dockerfile.test-seeder
+    container_name: iris-test-seeder
+    depends_on:
+      test-postgres:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://test_user:test_password@test-postgres:5432/test_iris_db
+      REDIS_URL: redis://test-redis:6379/0
+    volumes:
+      - ./app/tests/test_data:/app/test_data:ro
+    networks:
+      - test-network
+    profiles:
+      - seeder  # Only start when explicitly requested
+
+  # Observability Stack for Testing (Optional)
+  test-jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: iris-test-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger HTTP
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    networks:
+      - test-network
+    profiles:
+      - observability
+
+  # Load Testing Support
+  test-nginx:
+    image: nginx:alpine
+    container_name: iris-test-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./app/tests/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - mock-iris-api
+    networks:
+      - test-network
+    profiles:
+      - load-testing
+
+# Named volumes for test data persistence
+volumes:
+  test_postgres_data:
+    driver: local
+  test_redis_data:
+    driver: local
+
+# Test network
+networks:
+  test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

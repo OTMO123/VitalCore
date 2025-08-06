@@ -1,0 +1,96 @@
+[run]
+# Coverage configuration for comprehensive test coverage tracking
+source = app
+omit = 
+    app/tests/*
+    app/__pycache__/*
+    app/*/__pycache__/*
+    app/*/migrations/*
+    */venv/*
+    */virtualenv/*
+    .venv/*
+    .tox/*
+    */site-packages/*
+    setup.py
+    conftest.py
+    app/main.py  # Entry point, typically has minimal logic to test
+
+# Branch coverage for more thorough analysis
+branch = True
+
+# Parallel processing support
+parallel = True
+
+# Data file location
+data_file = .coverage
+
+# Include patterns
+include = 
+    app/*
+
+[report]
+# Reporting configuration
+precision = 2
+show_missing = True
+skip_covered = False
+skip_empty = False
+sort = Cover
+
+# Exclude lines from coverage
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+    
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Don't complain if non-runnable code isn't run
+    if __name__ == .__main__.:
+    
+    # Don't complain about abstract methods
+    @(abc\.)?abstractmethod
+    
+    # Don't complain about debug-only code
+    def __repr__
+    if self\.debug:
+    
+    # Don't complain about platform-specific code
+    pragma: no cover
+    
+    # Don't complain about type checking imports
+    if TYPE_CHECKING:
+    
+    # Don't complain about logging
+    logger\.debug
+    logger\.info
+    
+    # Don't complain about pass statements
+    pass
+    
+    # Don't complain about ellipsis
+    \.\.\.
+
+# Fail under threshold
+fail_under = 80
+
+[html]
+# HTML report configuration
+directory = htmlcov
+title = IRIS API Integration System - Test Coverage Report
+
+[xml]
+# XML report for CI/CD integration
+output = coverage.xml
+
+[json]
+# JSON report for programmatic analysis
+output = coverage.json
+pretty_print = True
+
+[paths]
+# Path mapping for different environments
+source =
+    app/
+    */site-packages/app/
+    .tox/*/lib/python*/site-packages/app/

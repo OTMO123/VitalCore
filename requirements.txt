@@ -1,0 +1,181 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
+alembic==1.13.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+cryptography>=42.0.0,<46.0.0
+
+# HTTP Client & API Integration
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Object Storage
+minio==7.2.0
+
+# Image Processing & OCR
+Pillow==10.1.0
+pytesseract==0.3.10
+PyMuPDF==1.23.8
+
+# Background Tasks & Scheduling
+celery==5.3.4
+redis==5.0.1
+croniter==2.0.1
+
+# Logging & Monitoring
+structlog==23.2.0
+rich==13.7.0
+
+# ML & Data Science
+numpy==1.24.3
+torch==2.0.1
+scikit-learn==1.3.0
+pandas==2.0.3
+transformers==4.30.2
+huggingface-hub==0.16.4
+
+# Vector Database
+pymilvus==2.3.7  # Updated version with proper MetricType support
+
+# Data Lake & Parquet
+pyarrow==12.0.1
+
+# Validation & Serialization
+email-validator==2.1.0
+python-dateutil==2.8.2
+marshmallow==3.19.0  # Exact version to avoid __version_info__ attribute error
+environs==9.5.0      # Environment variable parsing with marshmallow 3.x compatibility
+packaging>=21.0      # For version parsing in marshmallow compatibility patch
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+pytest-timeout==2.2.0
+pytest-xdist==3.5.0
+pytest-benchmark==4.0.0
+pytest-html==4.1.1
+pytest-sugar==0.9.7
+pytest-clarity==1.0.1
+pytest-watch==4.2.0
+httpx==0.25.2
+faker==20.1.0
+factory-boy==3.3.0
+fakeredis==2.20.1
+testcontainers==3.7.1
+aiosqlite==0.19.0
+coverage==7.3.2
+
+# Code Quality
+black==23.12.0
+isort==5.13.0
+flake8==6.1.0
+mypy==1.7.0
+ruff==0.1.7
+pre-commit==3.6.0
+
+# Security
+bandit==1.7.5
+safety==2.3.4
+
+# Performance Testing
+locust==2.17.0
+memory-profiler==0.61.0
+
+# Environment & Configuration
+python-dotenv==1.0.0
+
+# Phase 5 Production Performance Dependencies
+brotli==1.1.0
+opentelemetry-api==1.20.0
+opentelemetry-sdk==1.20.0
+opentelemetry-instrumentation==0.41b0
+opentelemetry-instrumentation-fastapi==0.41b0
+opentelemetry-instrumentation-sqlalchemy==0.41b0
+opentelemetry-exporter-prometheus==1.12.0rc1
+prometheus-client==0.17.1
+geoip2==4.7.0
+psutil==5.9.6
+maxminddb==2.6.2
+
+# Security & Compliance
+pycryptodome==3.19.0
+jwt==1.3.1
+
+# Monitoring & APM
+opentelemetry-exporter-jaeger==1.20.0
+opentelemetry-propagator-b3==1.20.0
+opentelemetry-instrumentation-requests==0.41b0
+opentelemetry-instrumentation-urllib3==0.41b0
+
+# Additional Phase 5 Dependencies for Advanced Features
+ipaddress==1.0.23  # IP address validation
+user-agents==2.2.0  # User agent parsing
+mmh3==4.0.1  # MurmurHash for efficient hashing
+watchdog==3.0.0  # File system monitoring
+typing-extensions==4.8.0  # Extended typing support
+
+# ML/AI Platform Dependencies (Week 1-2: Anonymization & Clinical BERT)
+# Note: These are optional AI/ML dependencies that can be installed separately if needed
+# numpy>=1.24.0  # Numerical computing for ML features
+# pandas>=2.0.0  # Data manipulation for anonymization
+# scikit-learn>=1.3.0  # K-anonymity clustering and ML utilities
+# transformers>=4.30.0  # Clinical BERT integration (Bio_ClinicalBERT)
+# torch>=2.0.0  # PyTorch for Clinical BERT inference
+# sentence-transformers>=2.2.0  # Sentence embeddings for clinical text
+# tokenizers>=0.13.0  # Text tokenization for BERT
+# datasets>=2.12.0  # Dataset handling for ML training
+# accelerate>=0.20.0  # GPU acceleration for Clinical BERT
+# pyarrow>=12.0.0  # Parquet support for Data Lake
+# boto3>=1.26.0  # S3 compatibility for MinIO
+# s3fs>=2023.5.0  # Filesystem interface for S3
+
+# Vector Database Dependencies (Week 3-4: Milvus Integration)
+# Note: These are optional Milvus dependencies that can be installed separately if needed
+# pymilvus>=2.3.0  # Milvus vector database client
+# milvus-cli>=0.4.0  # Milvus command line interface
+# grpcio>=1.54.0  # gRPC for Milvus communication
+# grpcio-tools>=1.54.0  # gRPC tools for Milvus
+
+# ETL Orchestration Dependencies (Week 3-4: Prefect Integration)  
+# Note: These are optional Prefect dependencies that can be installed separately if needed
+# prefect>=2.10.0  # Modern ETL orchestration platform
+# prefect-sqlalchemy>=0.4.0  # SQLAlchemy integration for Prefect
+# prefect-aws>=0.3.0  # AWS/S3 integration for Prefect
+# uvloop>=0.17.0  # High-performance async event loop
+
+# Emergency AI Dependencies (Week 7-8: Gemma 3n Integration)
+# Note: These are optional Google AI dependencies that can be installed separately if needed
+# google-generativeai>=0.3.0  # Google Gemma integration
+# safetensors>=0.3.0  # Secure model loading for on-device AI
+
+# Clinical Validation Framework Dependencies (Clinical AI Validation)
+# Note: These are optional statistical analysis dependencies that can be installed separately if needed
+# scipy>=1.11.0  # Statistical computing for validation analysis
+# matplotlib>=3.7.0  # Data visualization for validation reports
+# seaborn>=0.12.0  # Advanced statistical visualization
+# plotly>=5.15.0  # Interactive charts for validation dashboards
+# statsmodels>=0.14.0  # Statistical modeling and hypothesis testing
+# lifelines>=0.27.0  # Survival analysis for longitudinal studies
+# pingouin>=0.5.0  # Statistical testing and effect sizes
+# pymc>=5.5.0  # Bayesian statistical modeling
+# arviz>=0.15.0  # Bayesian model analysis and visualization
+# openpyxl>=3.1.0  # Excel export for validation reports
+# xlsxwriter>=3.1.0  # Advanced Excel formatting for reports
+# reportlab>=4.0.0  # PDF report generation
+# jinja2>=3.1.0  # Template engine for report generation
+# markdown>=3.4.0  # Markdown processing for reports
+# fpdf2>=2.7.0  # Alternative PDF generation
+# weasyprint>=59.0  # HTML to PDF conversion for reports

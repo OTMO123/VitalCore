@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedBrain - AI Clinical Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="../api/vitalcore-client.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .brain-gradient { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); }
+        .cardiology-gradient { background: linear-gradient(135deg, #dc2626 0%, #f87171 100%); }
+        .psychology-gradient { background: linear-gradient(135deg, #059669 0%, #34d399 100%); }
+        .pediatric-gradient { background: linear-gradient(135deg, #0ea5e9 0%, #60a5fa 100%); }
+        .neurology-gradient { background: linear-gradient(135deg, #7c2d12 0%, #f97316 100%); }
+        .oncology-gradient { background: linear-gradient(135deg, #581c87 0%, #a855f7 100%); }
+        .radiology-gradient { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); }
+        .emergency-gradient { background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); }
+        .general-gradient { background: linear-gradient(135deg, #374151 0%, #6b7280 100%); }
+        
+        .specialist-badge { transition: all 0.3s ease; transform: scale(0.95); }
+        .specialist-badge.active { transform: scale(1.05); box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+        .specialist-badge:hover { transform: scale(1.02); }
+        
+        .voice-button { transition: all 0.3s ease; }
+        .voice-button.recording { 
+            animation: pulse-red 1.5s infinite; 
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); 
+        }
+        .voice-button.listening { 
+            animation: pulse-blue 1.5s infinite; 
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); 
+        }
+        
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes pulse-blue {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .wave-animation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 30px;
+        }
+        
+        .wave-bar {
+            width: 3px;
+            height: 10px;
+            background: white;
+            margin: 0 2px;
+            border-radius: 3px;
+            animation: wave 1.5s infinite ease-in-out;
+        }
+        
+        .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+        
+        @keyframes wave {
+            0%, 40%, 100% { transform: scaleY(0.4); }
+            20% { transform: scaleY(1.0); }
+        }
+        
+        .specialist-dropdown {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .message-bubble {
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .typing-indicator {
+            animation: typewriter 1.5s infinite;
+        }
+        
+        @keyframes typewriter {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-blue-100 min-h-screen">
+    <div x-data="medbrainApp()" x-init="init()" class="min-h-screen">
+        <!-- Header -->
+        <header class="glass border-b border-white/20 sticky top-0 z-50">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <!-- Logo and Title -->
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 brain-gradient rounded-xl flex items-center justify-center">
+                            <i class="fas fa-brain text-white text-lg"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-900">MedBrain</h1>
+                            <p class="text-xs text-gray-500">AI Clinical Assistant</p>
+                        </div>
+                    </div>
+                    
+                    <!-- AI Status -->
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <div :class="aiStatus.online ? 'bg-green-500' : 'bg-red-500'" class="w-2 h-2 rounded-full"></div>
+                            <span class="text-sm text-gray-600">
+                                <span x-text="aiStatus.online ? 'AI Online' : 'AI Offline'"></span>
+                                <span x-show="aiStatus.online" class="text-xs text-gray-400">
+                                    (<span x-text="aiStatus.model"></span>)
+                                </span>
+                            </span>
+                        </div>
+                        <button @click="toggleSettings()" class="p-2 text-gray-600 hover:text-gray-900 transition-colors">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Chat Interface -->
+        <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="glass rounded-2xl border border-white/20 shadow-xl overflow-hidden">
+                <!-- Chat Header with Specialist Selection -->
+                <div class="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-blue-50">
+                    <!-- Specialist Selector -->
+                    <div class="flex items-center space-x-4">
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" 
+                                    class="flex items-center space-x-3 px-4 py-2 rounded-lg transition-all hover:bg-white/50"
+                                    :class="getSpecialistGradient(currentSpecialist.id)">
+                                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                    <i :class="currentSpecialist.icon" class="text-white"></i>
+                                </div>
+                                <div class="text-left">
+                                    <p class="text-white font-medium" x-text="currentSpecialist.name"></p>
+                                    <p class="text-white/80 text-xs" x-text="currentSpecialist.specialty"></p>
+                                </div>
+                                <i class="fas fa-chevron-down text-white text-sm"></i>
+                            </button>
+                            
+                            <!-- Specialist Dropdown -->
+                            <div x-show="open" @click.away="open = false" 
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 transform scale-95"
+                                 x-transition:enter-end="opacity-100 transform scale-100"
+                                 x-transition:leave="transition ease-in duration-150"
+                                 x-transition:leave-start="opacity-100 transform scale-100"
+                                 x-transition:leave-end="opacity-0 transform scale-95"
+                                 class="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 specialist-dropdown z-50">
+                                
+                                <div class="p-2">
+                                    <template x-for="specialist in specialists" :key="specialist.id">
+                                        <button @click="selectSpecialist(specialist); open = false"
+                                                class="w-full flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                                                :class="currentSpecialist.id === specialist.id ? 'bg-purple-50 border border-purple-200' : ''">
+                                            <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
+                                                 :class="getSpecialistGradient(specialist.id)">
+                                                <i :class="specialist.icon"></i>
+                                            </div>
+                                            <div class="text-left flex-1">
+                                                <p class="font-medium text-gray-900" x-text="specialist.name"></p>
+                                                <p class="text-xs text-gray-600" x-text="specialist.specialty"></p>
+                                                <p class="text-xs text-gray-500 mt-1" x-text="specialist.description"></p>
+                                            </div>
+                                            <div x-show="currentSpecialist.id === specialist.id" class="text-purple-600">
+                                                <i class="fas fa-check"></i>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Actions -->
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">
+                            Conversations: <span x-text="conversationCount" class="font-medium"></span>
+                        </span>
+                        <button @click="clearChat()" 
+                                class="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded-lg transition-colors">
+                            <i class="fas fa-trash mr-1"></i>Clear
+                        </button>
+                        <button @click="exportChat()" 
+                                class="px-3 py-1 text-sm text-gray-500 hover:text-gray-700 hover:bg-white/50 rounded-lg transition-colors">
+                            <i class="fas fa-download mr-1"></i>Export
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Messages Container -->
+                <div class="h-96 overflow-y-auto p-6 bg-gradient-to-b from-gray-50/30 to-white/30" id="messages-container">
+                    <div class="space-y-4">
+                        <!-- Welcome Message -->
+                        <div x-show="messages.length === 0" class="text-center py-12">
+                            <div class="w-16 h-16 brain-gradient rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-brain text-white text-2xl"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                Welcome to MedBrain
+                            </h3>
+                            <p class="text-gray-600 max-w-md mx-auto">
+                                I'm your specialized AI clinical assistant. Select a specialist above and start a conversation about patient care, diagnosis, or treatment plans.
+                            </p>
+                        </div>
+
+                        <!-- Chat Messages -->
+                        <template x-for="message in messages" :key="message.id">
+                            <div class="message-bubble"
+                                 :class="message.sender === 'user' ? 'flex justify-end' : 'flex justify-start'">
+                                <div class="max-w-xs lg:max-w-md">
+                                    <!-- User Message -->
+                                    <div x-show="message.sender === 'user'" 
+                                         class="brain-gradient text-white px-4 py-3 rounded-2xl rounded-br-md">
+                                        <div x-show="message.type === 'voice'" class="mb-2">
+                                            <div class="flex items-center space-x-2 text-white/80">
+                                                <i class="fas fa-microphone text-xs"></i>
+                                                <span class="text-xs">Voice message</span>
+                                            </div>
+                                        </div>
+                                        <p class="text-sm" x-html="formatMessage(message.content)"></p>
+                                        <div class="flex items-center justify-between mt-2">
+                                            <p class="text-xs text-white/70" x-text="formatTime(message.timestamp)"></p>
+                                            <div x-show="message.confidence" class="text-xs text-white/70">
+                                                <span x-text="message.confidence + '%'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- AI Message -->
+                                    <div x-show="message.sender === 'ai'" 
+                                         class="bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
+                                        <div class="flex items-center space-x-2 mb-2">
+                                            <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs"
+                                                 :class="getSpecialistGradient(message.specialist || currentSpecialist.id)">
+                                                <i :class="getSpecialistIcon(message.specialist || currentSpecialist.id)"></i>
+                                            </div>
+                                            <span class="text-xs font-medium text-gray-600" 
+                                                  x-text="getSpecialistName(message.specialist || currentSpecialist.id)"></span>
+                                        </div>
+                                        <p class="text-sm text-gray-900" x-html="formatMessage(message.content)"></p>
+                                        <div class="flex items-center justify-between mt-3">
+                                            <p class="text-xs text-gray-400" x-text="formatTime(message.timestamp)"></p>
+                                            <div class="flex items-center space-x-3">
+                                                <div x-show="message.confidence" class="flex items-center space-x-1">
+                                                    <span class="text-xs text-gray-500">Confidence:</span>
+                                                    <span class="text-xs font-medium" 
+                                                          :class="message.confidence >= 90 ? 'text-green-600' : message.confidence >= 70 ? 'text-yellow-600' : 'text-red-600'"
+                                                          x-text="message.confidence + '%'"></span>
+                                                </div>
+                                                <button @click="speakMessage(message.content)" 
+                                                        class="text-gray-400 hover:text-gray-600 transition-colors">
+                                                    <i class="fas fa-volume-up text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Typing Indicator -->
+                        <div x-show="aiTyping" class="flex justify-start">
+                            <div class="bg-white border border-gray-200 px-4 py-3 rounded-2xl rounded-bl-md shadow-sm">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <div class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs"
+                                         :class="getSpecialistGradient(currentSpecialist.id)">
+                                        <i :class="currentSpecialist.icon"></i>
+                                    </div>
+                                    <span class="text-xs font-medium text-gray-600" x-text="currentSpecialist.name + ' is thinking...'"></span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <div class="typing-indicator w-2 h-2 bg-gray-400 rounded-full"></div>
+                                    <div class="typing-indicator w-2 h-2 bg-gray-400 rounded-full" style="animation-delay: 0.2s"></div>
+                                    <div class="typing-indicator w-2 h-2 bg-gray-400 rounded-full" style="animation-delay: 0.4s"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="p-6 bg-white border-t border-gray-200">
+                    <!-- Voice Recording Indicator -->
+                    <div x-show="isRecording || isListening" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex-shrink-0">
+                                <div x-show="isRecording" class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                                    <div class="wave-animation">
+                                        <div class="wave-bar"></div>
+                                        <div class="wave-bar"></div>
+                                        <div class="wave-bar"></div>
+                                        <div class="wave-bar"></div>
+                                        <div class="wave-bar"></div>
+                                    </div>
+                                </div>
+                                <div x-show="isListening" class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-ear-listen text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p x-show="isRecording" class="text-red-700 font-medium">Recording your voice...</p>
+                                <p x-show="isListening" class="text-blue-700 font-medium">Processing speech...</p>
+                                <p class="text-gray-600 text-sm">Speak clearly about your clinical question</p>
+                            </div>
+                            <button @click="stopRecording()" 
+                                    class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                                Stop
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Input Controls -->
+                    <div class="flex space-x-3">
+                        <!-- Voice Input Button -->
+                        <button @click="toggleVoiceInput()" 
+                                :disabled="!aiStatus.online"
+                                class="voice-button w-12 h-12 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                :class="isRecording ? 'recording' : isListening ? 'listening' : 'brain-gradient hover:shadow-lg'">
+                            <i x-show="!isRecording && !isListening" class="fas fa-microphone"></i>
+                            <i x-show="isRecording" class="fas fa-stop"></i>
+                            <i x-show="isListening" class="fas fa-spinner fa-spin"></i>
+                        </button>
+
+                        <!-- Text Input -->
+                        <div class="flex-1">
+                            <input type="text" 
+                                   x-model="textInput"
+                                   @keyup.enter="sendMessage()"
+                                   :disabled="!aiStatus.online || isRecording"
+                                   :placeholder="getInputPlaceholder()"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 transition-all">
+                        </div>
+
+                        <!-- Send Button -->
+                        <button @click="sendMessage()" 
+                                :disabled="!textInput.trim() || !aiStatus.online || aiTyping"
+                                class="brain-gradient text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i x-show="!aiTyping" class="fas fa-paper-plane"></i>
+                            <i x-show="aiTyping" class="fas fa-spinner fa-spin"></i>
+                        </button>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <template x-for="quickAction in getQuickActions()" :key="quickAction.text">
+                            <button @click="sendQuickMessage(quickAction.text)"
+                                    class="px-3 py-1 text-xs bg-purple-50 text-purple-600 rounded-full hover:bg-purple-100 transition-colors">
+                                <i :class="quickAction.icon" class="mr-1"></i>
+                                <span x-text="quickAction.label"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Specialist Information Panel -->
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass rounded-xl p-6 border border-white/20">
+                    <div class="w-12 h-12 rounded-lg flex items-center justify-center text-white mb-4"
+                         :class="getSpecialistGradient(currentSpecialist.id)">
+                        <i :class="currentSpecialist.icon" class="text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2" x-text="currentSpecialist.name"></h3>
+                    <p class="text-sm text-gray-600 mb-3" x-text="currentSpecialist.description"></p>
+                    <div class="text-xs text-gray-500">
+                        <p>Expertise: <span x-text="currentSpecialist.expertise"></span></p>
+                    </div>
+                </div>
+
+                <div class="glass rounded-xl p-6 border border-white/20">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-shield-alt text-green-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Privacy First</h3>
+                    <p class="text-sm text-gray-600 mb-3">All conversations are processed locally. No PHI data leaves your system.</p>
+                    <div class="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                        HIPAA Compliant
+                    </div>
+                </div>
+
+                <div class="glass rounded-xl p-6 border border-white/20">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                        <i class="fas fa-brain text-blue-600 text-xl"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-2">AI Powered</h3>
+                    <p class="text-sm text-gray-600 mb-3">Powered by Gemma 3n with specialized medical knowledge bases.</p>
+                    <div class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                        96.7% Accuracy
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function medbrainApp() {
+            return {
+                // Application State
+                messages: [],
+                textInput: '',
+                aiTyping: false,
+                isRecording: false,
+                isListening: false,
+                conversationCount: 0,
+                
+                // AI Status
+                aiStatus: {
+                    online: true,
+                    model: 'Gemma 3n v3.1'
+                },
+                
+                // Current Specialist
+                currentSpecialist: {},
+                
+                // Speech Recognition
+                recognition: null,
+                synthesis: null,
+                
+                // Medical Specialists
+                specialists: [
+                    {
+                        id: 'general',
+                        name: 'General Practitioner',
+                        specialty: 'Family Medicine',
+                        description: 'Primary care, preventive medicine, and general health management',
+                        expertise: 'Comprehensive primary healthcare',
+                        icon: 'fas fa-user-md'
+                    },
+                    {
+                        id: 'cardiology',
+                        name: 'Dr. CardioAI',
+                        specialty: 'Cardiology',
+                        description: 'Heart diseases, cardiovascular conditions, cardiac procedures',
+                        expertise: 'Heart failure, arrhythmias, coronary disease',
+                        icon: 'fas fa-heartbeat'
+                    },
+                    {
+                        id: 'psychology',
+                        name: 'Dr. MindAI',
+                        specialty: 'Psychology/Psychiatry',
+                        description: 'Mental health, behavioral disorders, psychological therapy',
+                        expertise: 'Depression, anxiety, PTSD, cognitive therapy',
+                        icon: 'fas fa-brain'
+                    },
+                    {
+                        id: 'pediatric',
+                        name: 'Dr. PediaAI',
+                        specialty: 'Pediatrics',
+                        description: 'Child healthcare, developmental disorders, pediatric medicine',
+                        expertise: 'Child development, vaccines, pediatric diseases',
+                        icon: 'fas fa-child'
+                    },
+                    {
+                        id: 'neurology',
+                        name: 'Dr. NeuroAI',
+                        specialty: 'Neurology',
+                        description: 'Neurological disorders, brain and nervous system conditions',
+                        expertise: 'Stroke, epilepsy, Parkinson\'s, MS',
+                        icon: 'fas fa-head-side-brain'
+                    },
+                    {
+                        id: 'oncology',
+                        name: 'Dr. OncoAI',
+                        specialty: 'Oncology',
+                        description: 'Cancer diagnosis, treatment protocols, oncological care',
+                        expertise: 'Chemotherapy, radiation therapy, tumor analysis',
+                        icon: 'fas fa-ribbon'
+                    },
+                    {
+                        id: 'radiology',
+                        name: 'Dr. RadioAI',
+                        specialty: 'Radiology',
+                        description: 'Medical imaging, diagnostic radiology, image interpretation',
+                        expertise: 'X-ray, CT, MRI, ultrasound analysis',
+                        icon: 'fas fa-x-ray'
+                    },
+                    {
+                        id: 'emergency',
+                        name: 'Dr. EmergencyAI',
+                        specialty: 'Emergency Medicine',
+                        description: 'Emergency care, trauma management, critical care protocols',
+                        expertise: 'Trauma, resuscitation, critical interventions',
+                        icon: 'fas fa-ambulance'
+                    }
+                ],
+                
+                // Initialize
+                async init() {
+                    console.log('🧠 MedBrain initializing...');
+                    
+                    // Set default specialist
+                    this.currentSpecialist = this.specialists[0];
+                    
+                    // Initialize speech recognition
+                    this.initializeSpeechRecognition();
+                    this.initializeSpeechSynthesis();
+                    
+                    // Load AI status
+                    await this.loadAIStatus();
+                    
+                    // Add welcome message
+                    this.addWelcomeMessage();
+                    
+                    console.log('✅ MedBrain initialized successfully');
+                },
+                
+                // Speech Recognition Setup
+                initializeSpeechRecognition() {
+                    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                        this.recognition = new SpeechRecognition();
+                        
+                        this.recognition.continuous = false;
+                        this.recognition.interimResults = false;
+                        this.recognition.lang = 'en-US';
+                        
+                        this.recognition.onstart = () => {
+                            console.log('🎤 Speech recognition started');
+                            this.isListening = false;
+                            this.isRecording = true;
+                        };
+                        
+                        this.recognition.onresult = (event) => {
+                            const result = event.results[0][0].transcript;
+                            const confidence = Math.round(event.results[0][0].confidence * 100);
+                            
+                            console.log('🗣️ Speech recognized:', result, `(${confidence}%)`);
+                            
+                            this.textInput = result;
+                            this.isRecording = false;
+                            this.isListening = true;
+                            
+                            // Auto-send voice message
+                            setTimeout(() => {
+                                this.sendMessage('voice', confidence);
+                            }, 500);
+                        };
+                        
+                        this.recognition.onerror = (event) => {
+                            console.error('❌ Speech recognition error:', event.error);
+                            this.isRecording = false;
+                            this.isListening = false;
+                        };
+                        
+                        this.recognition.onend = () => {
+                            console.log('🔇 Speech recognition ended');
+                            this.isRecording = false;
+                            this.isListening = false;
+                        };
+                    }
+                },
+                
+                // Speech Synthesis Setup
+                initializeSpeechSynthesis() {
+                    if ('speechSynthesis' in window) {
+                        this.synthesis = window.speechSynthesis;
+                    }
+                },
+                
+                // Load AI Status
+                async loadAIStatus() {
+                    try {
+                        if (window.vitalcore && window.vitalcore.isAuthenticated()) {
+                            const status = await window.vitalcore.medbrain.getModelStatus();
+                            this.aiStatus = {
+                                online: status.status === 'online',
+                                model: status.version || 'Gemma 3n v3.1'
+                            };
+                        }
+                    } catch (error) {
+                        console.error('❌ Failed to load AI status:', error);
+                        this.aiStatus = { online: false, model: 'Unknown' };
+                    }
+                },
+                
+                // Specialist Management
+                selectSpecialist(specialist) {
+                    this.currentSpecialist = specialist;
+                    console.log('👨‍⚕️ Selected specialist:', specialist.name);
+                    
+                    // Add specialist change message
+                    this.addMessage('system', `Switched to ${specialist.name} - ${specialist.specialty}`, 'system');
+                    this.addWelcomeMessage();
+                },
+                
+                getSpecialistGradient(specialistId) {
+                    const gradients = {
+                        'general': 'general-gradient',
+                        'cardiology': 'cardiology-gradient',
+                        'psychology': 'psychology-gradient',
+                        'pediatric': 'pediatric-gradient',
+                        'neurology': 'neurology-gradient',
+                        'oncology': 'oncology-gradient',
+                        'radiology': 'radiology-gradient',
+                        'emergency': 'emergency-gradient'
+                    };
+                    return gradients[specialistId] || 'brain-gradient';
+                },
+                
+                getSpecialistName(specialistId) {
+                    const specialist = this.specialists.find(s => s.id === specialistId);
+                    return specialist ? specialist.name : 'AI Assistant';
+                },
+                
+                getSpecialistIcon(specialistId) {
+                    const specialist = this.specialists.find(s => s.id === specialistId);
+                    return specialist ? specialist.icon : 'fas fa-brain';
+                },
+                
+                // Voice Input
+                toggleVoiceInput() {
+                    if (!this.recognition) {
+                        alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+                        return;
+                    }
+                    
+                    if (this.isRecording) {
+                        this.stopRecording();
+                    } else {
+                        this.startRecording();
+                    }
+                },
+                
+                startRecording() {
+                    this.recognition.start();
+                },
+                
+                stopRecording() {
+                    if (this.recognition) {
+                        this.recognition.stop();
+                    }
+                    this.isRecording = false;
+                    this.isListening = false;
+                },
+                
+                // Text-to-Speech
+                speakMessage(text) {
+                    if (!this.synthesis) return;
+                    
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1;
+                    utterance.volume = 0.8;
+                    
+                    // Try to use a medical/professional voice if available
+                    const voices = this.synthesis.getVoices();
+                    const preferredVoice = voices.find(voice => 
+                        voice.name.includes('Google') || 
+                        voice.name.includes('Microsoft') ||
+                        voice.lang.startsWith('en')
+                    );
+                    
+                    if (preferredVoice) {
+                        utterance.voice = preferredVoice;
+                    }
+                    
+                    this.synthesis.speak(utterance);
+                },
+                
+                // Message Management
+                addMessage(sender, content, type = 'text', confidence = null) {
+                    const message = {
+                        id: Date.now() + Math.random(),
+                        sender,
+                        content,
+                        type,
+                        confidence,
+                        specialist: this.currentSpecialist.id,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    this.messages.push(message);
+                    
+                    // Scroll to bottom
+                    this.$nextTick(() => {
+                        const container = document.getElementById('messages-container');
+                        container.scrollTop = container.scrollHeight;
+                    });
+                    
+                    return message;
+                },
+                
+                addWelcomeMessage() {
+                    const welcomeMessages = {
+                        'general': 'Hello! I\'m your general practitioner AI. I can help with primary care questions, preventive medicine, and general health concerns.',
+                        'cardiology': 'Hello! I\'m Dr. CardioAI, your cardiology specialist. I can assist with heart conditions, cardiovascular risk assessment, and cardiac procedures.',
+                        'psychology': 'Hello! I\'m Dr. MindAI, your psychology specialist. I can help with mental health concerns, behavioral therapy, and psychological assessments.',
+                        'pediatric': 'Hello! I\'m Dr. PediaAI, your pediatrics specialist. I can assist with child healthcare, developmental concerns, and pediatric conditions.',
+                        'neurology': 'Hello! I\'m Dr. NeuroAI, your neurology specialist. I can help with neurological conditions, brain disorders, and nervous system issues.',
+                        'oncology': 'Hello! I\'m Dr. OncoAI, your oncology specialist. I can assist with cancer-related questions, treatment protocols, and oncological care.',
+                        'radiology': 'Hello! I\'m Dr. RadioAI, your radiology specialist. I can help interpret medical imaging and diagnostic radiology questions.',
+                        'emergency': 'Hello! I\'m Dr. EmergencyAI, your emergency medicine specialist. I can assist with urgent care protocols and emergency procedures.'
+                    };
+                    
+                    this.addMessage('ai', welcomeMessages[this.currentSpecialist.id] || welcomeMessages['general']);
+                },
+                
+                // Send Message
+                async sendMessage(messageType = 'text', confidence = null) {
+                    if (!this.textInput.trim() || this.aiTyping) return;
+                    
+                    const userMessage = this.textInput.trim();
+                    this.textInput = '';
+                    
+                    // Add user message
+                    this.addMessage('user', userMessage, messageType, confidence);
+                    this.conversationCount++;
+                    
+                    this.aiTyping = true;
+                    
+                    try {
+                        // Prepare context for specialist
+                        const context = {
+                            specialist: this.currentSpecialist.id,
+                            specialty: this.currentSpecialist.specialty,
+                            expertise: this.currentSpecialist.expertise
+                        };
+                        
+                        let response;
+                        if (window.vitalcore && window.vitalcore.isAuthenticated()) {
+                            // Real AI call
+                            response = await window.vitalcore.medbrain.clinicalAnalysis({
+                                query: userMessage,
+                                context: context,
+                                specialist: this.currentSpecialist.id
+                            });
+                        } else {
+                            // Simulate AI response for demo
+                            response = await this.simulateSpecialistResponse(userMessage, this.currentSpecialist);
+                        }
+                        
+                        this.addMessage('ai', 
+                            response.analysis || response.message || response.content || 'I understand your question. Let me provide you with evidence-based medical guidance.',
+                            'text',
+                            response.confidence || 95
+                        );
+                        
+                    } catch (error) {
+                        console.error('❌ AI message failed:', error);
+                        this.addMessage('ai', 
+                            `I apologize, but I'm experiencing technical difficulties. As your ${this.currentSpecialist.specialty} specialist, I recommend consulting with a healthcare professional for immediate concerns.`,
+                            'text',
+                            0
+                        );
+                    } finally {
+                        this.aiTyping = false;
+                    }
+                },
+                
+                sendQuickMessage(message) {
+                    this.textInput = message;
+                    this.sendMessage();
+                },
+                
+                // Simulate Specialist Response (for demo)
+                async simulateSpecialistResponse(message, specialist) {
+                    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate thinking
+                    
+                    const responses = {
+                        'cardiology': `Based on your inquiry about cardiovascular health, I recommend focusing on evidence-based cardiac care protocols. Consider factors like blood pressure management, lipid profiles, and lifestyle modifications. Would you like me to elaborate on any specific cardiac condition?`,
+                        'psychology': `From a mental health perspective, it's important to consider both psychological and physiological factors. I can help you understand various therapeutic approaches, including cognitive-behavioral therapy and evidence-based treatments. What specific mental health concern would you like to discuss?`,
+                        'pediatric': `In pediatric care, we need to consider age-appropriate treatments and developmental factors. I can guide you through pediatric protocols, growth and development milestones, and child-specific medical considerations. What age group are you inquiring about?`,
+                        'neurology': `Neurological conditions require careful assessment and specialized treatment approaches. I can help you understand various neurological disorders, diagnostic procedures, and treatment protocols. Which neurological concern would you like to explore?`,
+                        'oncology': `In oncology, treatment decisions are complex and require multidisciplinary approaches. I can provide information about cancer types, staging, treatment protocols, and supportive care. What specific oncological question can I help with?`,
+                        'radiology': `Medical imaging interpretation requires systematic evaluation. I can help you understand various imaging modalities, findings, and their clinical significance. What type of imaging study are you inquiring about?`,
+                        'emergency': `In emergency medicine, we prioritize rapid assessment and life-saving interventions. I can guide you through emergency protocols, triage decisions, and critical care procedures. What emergency scenario are you dealing with?`,
+                        'general': `As your primary care provider, I can address a wide range of health concerns. I focus on comprehensive care, preventive medicine, and coordinating with specialists when needed. How can I assist with your health question today?`
+                    };
+                    
+                    return {
+                        content: responses[specialist.id] || responses['general'],
+                        confidence: 92
+                    };
+                },
+                
+                // Quick Actions
+                getQuickActions() {
+                    const actions = {
+                        'cardiology': [
+                            { icon: 'fas fa-heartbeat', label: 'Chest Pain Protocol', text: 'What is the standard protocol for evaluating acute chest pain?' },
+                            { icon: 'fas fa-pills', label: 'Hypertension Meds', text: 'What are the first-line medications for hypertension treatment?' },
+                            { icon: 'fas fa-chart-line', label: 'ECG Interpretation', text: 'How should I interpret abnormal ECG findings?' }
+                        ],
+                        'psychology': [
+                            { icon: 'fas fa-brain', label: 'Depression Assessment', text: 'What tools should I use for depression screening?' },
+                            { icon: 'fas fa-users', label: 'Therapy Options', text: 'What are the evidence-based therapy options for anxiety?' },
+                            { icon: 'fas fa-prescription', label: 'Psych Medications', text: 'When should I consider psychiatric medications?' }
+                        ],
+                        'pediatric': [
+                            { icon: 'fas fa-syringe', label: 'Vaccination Schedule', text: 'What is the current pediatric vaccination schedule?' },
+                            { icon: 'fas fa-child', label: 'Growth Charts', text: 'How do I interpret pediatric growth charts?' },
+                            { icon: 'fas fa-thermometer', label: 'Fever Management', text: 'What is the protocol for managing fever in children?' }
+                        ],
+                        'emergency': [
+                            { icon: 'fas fa-ambulance', label: 'Trauma Protocol', text: 'What is the primary survey for trauma patients?' },
+                            { icon: 'fas fa-heart', label: 'Cardiac Arrest', text: 'What are the current ACLS guidelines?' },
+                            { icon: 'fas fa-lungs', label: 'Respiratory Distress', text: 'How should I manage acute respiratory distress?' }
+                        ]
+                    };
+                    
+                    return actions[this.currentSpecialist.id] || [
+                        { icon: 'fas fa-question', label: 'Diagnosis Help', text: 'Help me with differential diagnosis for these symptoms' },
+                        { icon: 'fas fa-pills', label: 'Treatment Options', text: 'What are the treatment options for this condition?' },
+                        { icon: 'fas fa-book', label: 'Guidelines', text: 'What do current clinical guidelines recommend?' }
+                    ];
+                },
+                
+                getInputPlaceholder() {
+                    const placeholders = {
+                        'cardiology': 'Ask about heart conditions, ECG interpretation, or cardiac procedures...',
+                        'psychology': 'Discuss mental health, therapy options, or psychiatric assessments...',
+                        'pediatric': 'Ask about child healthcare, development, or pediatric conditions...',
+                        'neurology': 'Inquire about neurological disorders or brain conditions...',
+                        'oncology': 'Discuss cancer treatment, protocols, or oncological care...',
+                        'radiology': 'Ask about medical imaging or diagnostic radiology...',
+                        'emergency': 'Emergency protocols, trauma care, or critical procedures...',
+                        'general': 'Ask about primary care, preventive medicine, or general health...'
+                    };
+                    
+                    return placeholders[this.currentSpecialist.id] || 'Type your medical question or use voice input...';
+                },
+                
+                // Utility Functions
+                clearChat() {
+                    this.messages = [];
+                    this.conversationCount = 0;
+                    this.addWelcomeMessage();
+                },
+                
+                exportChat() {
+                    const chatData = {
+                        specialist: this.currentSpecialist,
+                        messages: this.messages,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `medbrain-chat-${this.currentSpecialist.id}-${Date.now()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                },
+                
+                toggleSettings() {
+                    // TODO: Implement settings modal
+                    console.log('Settings clicked');
+                },
+                
+                formatMessage(content) {
+                    return content
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/\n/g, '<br>');
+                },
+                
+                formatTime(timestamp) {
+                    return new Date(timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                }
+            };
+        }
+    </script>
+</body>
+</html>

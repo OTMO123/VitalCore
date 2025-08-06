@@ -1,0 +1,173 @@
+# HEMA3N Medical LoRA Fine-tuning Configuration
+# Based on Gemma 3N with Unsloth optimizations
+
+# Model Configuration
+model:
+  base_model: "unsloth/gemma-3n-E2B-it"  # 2B parameters, instruction-tuned
+  # Alternative models:
+  # - "unsloth/gemma-3n-E4B-it"              # 4B parameters (more powerful)
+  # - "unsloth/gemma-3n-E2B-it-unsloth-bnb-4bit"  # 4-bit quantized
+  max_seq_length: 1024
+  load_in_4bit: true
+  dtype: null  # Auto detection
+
+# LoRA Configuration
+lora:
+  r: 8                    # LoRA rank - higher = more parameters (8, 16, 32)
+  lora_alpha: 8          # LoRA scaling factor (usually = r)
+  lora_dropout: 0.0      # Dropout for LoRA layers
+  bias: "none"           # Bias type
+  target_modules:        # Which modules to apply LoRA to
+    - "q_proj"
+    - "v_proj" 
+    - "k_proj"
+    - "o_proj"
+  
+  # Fine-tuning targets
+  finetune_vision_layers: false      # Set true for multimodal medical imaging
+  finetune_language_layers: true     # Always true for text
+  finetune_attention_modules: true   # Good for medical reasoning
+  finetune_mlp_modules: true         # Always true
+
+# Training Configuration
+training:
+  num_epochs: 1
+  max_steps: 100                     # Override epochs if set
+  per_device_train_batch_size: 1     # Batch size per GPU
+  gradient_accumulation_steps: 4     # Effective batch size = batch_size * accum_steps
+  learning_rate: 2e-4               # Learning rate for medical fine-tuning
+  weight_decay: 0.01
+  warmup_steps: 10
+  lr_scheduler_type: "linear"
+  optimizer: "paged_adamw_8bit"     # Memory efficient optimizer
+  logging_steps: 5
+  save_steps: 500
+  eval_steps: 500
+  evaluation_strategy: "steps"
+  save_total_limit: 3
+
+# Medical Dataset Configuration
+dataset:
+  use_medical_data: true
+  dataset_size: 1000                # Number of training samples per agent
+  medical_specialties:
+    cardiology:
+      focus_areas: 
+        - "acute coronary syndrome"
+        - "heart failure"
+        - "arrhythmias"
+        - "hypertension management"
+      datasets:
+        - "mimic_iii_cardiology"
+        - "pubmed_cardiology"
+        - "medqa_cardiology"
+    
+    neurology:
+      focus_areas:
+        - "stroke management"
+        - "seizure disorders"
+        - "neurodegenerative diseases"
+        - "headache disorders"
+      datasets:
+        - "mimic_iii_neurology"
+        - "pubmed_neurology"
+        - "medqa_neurology"
+    
+    emergency:
+      focus_areas:
+        - "trauma assessment"
+        - "cardiac arrest"
+        - "shock management"
+        - "airway management"
+      datasets:
+        - "mimic_iii_emergency"
+        - "acls_protocols"
+        - "trauma_guidelines"
+
+# Medical Agent Configurations
+agents:
+  cardiology_agent:
+    name: "HEMA3N Cardiology Specialist"
+    specialization: "cardiovascular_medicine"
+    confidence_threshold: 0.8
+    emergency_indicators:
+      - "chest pain"
+      - "cardiac arrest"
+      - "myocardial infarction"
+      - "heart failure"
+    
+  neurology_agent:
+    name: "HEMA3N Neurology Specialist" 
+    specialization: "neurological_medicine"
+    confidence_threshold: 0.85
+    emergency_indicators:
+      - "stroke"
+      - "seizure"
+      - "altered consciousness"
+      - "severe headache"
+    
+  emergency_agent:
+    name: "HEMA3N Emergency Medicine Specialist"
+    specialization: "emergency_medicine"
+    confidence_threshold: 0.9
+    emergency_indicators:
+      - "cardiac arrest"
+      - "respiratory failure"
+      - "severe trauma"
+      - "shock"
+
+# Hardware Configuration
+hardware:
+  use_cuda: true
+  mixed_precision: true             # Use bf16/fp16 for memory efficiency
+  gradient_checkpointing: true      # Trade compute for memory
+  dataloader_pin_memory: false      # Set false to save memory
+  dataloader_num_workers: 2
+
+# Output Configuration
+output:
+  base_dir: "./models/medical_agents"
+  save_merged_model: false          # Save merged model (larger file)
+  save_lora_adapters: true          # Save LoRA adapters only (smaller)
+  push_to_hub: false               # Upload to Hugging Face Hub
+  hub_model_id: "hema3n/medical-agents"
+  
+# Inference Configuration  
+inference:
+  temperature: 0.1                  # Low temperature for medical accuracy
+  top_p: 0.95
+  top_k: 64
+  max_new_tokens: 256
+  do_sample: true
+  repetition_penalty: 1.1
+
+# Quality Control
+quality:
+  min_response_length: 50           # Minimum response length
+  max_response_length: 1000         # Maximum response length
+  filter_harmful_content: true      # Filter potentially harmful responses
+  require_medical_validation: true   # Require medical validation
+  confidence_threshold: 0.7         # Minimum confidence for deployment
+
+# Monitoring and Logging
+monitoring:
+  track_memory_usage: true
+  log_training_metrics: true
+  save_training_logs: true
+  wandb_project: "hema3n-medical-agents"  # Weights & Biases project
+  wandb_enabled: false
+
+# Safety and Compliance  
+safety:
+  hipaa_compliance: true
+  phi_filtering: true               # Filter PHI from training data
+  audit_logging: true               # Log all training activities
+  model_versioning: true            # Track model versions
+  backup_models: true               # Backup trained models
+
+# Experimental Features
+experimental:
+  multimodal_training: false        # Enable vision + text training
+  audio_training: false            # Enable audio processing (future)
+  federated_learning: false        # Distributed training (future)
+  continual_learning: false        # Continuous learning from feedback

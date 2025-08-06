@@ -1,0 +1,326 @@
+# SECURE PRODUCTION DOCKER COMPOSE
+# This replaces the development docker-compose.yml for production deployment
+
+services:
+  # PostgreSQL Database with security hardening
+  db:
+    image: postgres:15-alpine
+    container_name: iris_postgres_prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-iris_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      # Security hardening
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./init-enterprise.sql:/docker-entrypoint-initdb.d/02-enterprise.sql:ro
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+
+  # Redis with security hardening
+  redis:
+    image: redis:7-alpine
+    container_name: iris_redis_prod
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass "$${REDIS_PASSWORD}"
+    environment:
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    secrets:
+      - redis_password
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "$$REDIS_PASSWORD", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # Main application with security hardening
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: iris_app_prod
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:@db:5432/${POSTGRES_DB:-iris_db}
+      - REDIS_URL=redis://:@redis:6379/0
+      # Security: All secrets loaded from files
+      - SECRET_KEY_FILE=/run/secrets/app_secret_key
+      - ENCRYPTION_KEY_FILE=/run/secrets/app_encryption_key
+      - JWT_SECRET_KEY_FILE=/run/secrets/jwt_secret_key
+      # ML Security Settings
+      - ML_SECURITY_ENABLED=true
+      - PHI_ENCRYPTION_ENABLED=true
+      - MEDICAL_KNOWLEDGE_PATH=/run/secrets/medical_knowledge_encrypted
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - app_logs:/app/logs
+      - model_cache:/app/models
+    secrets:
+      - app_secret_key
+      - app_encryption_key
+      - jwt_secret_key
+      - postgres_password
+      - redis_password
+      - medical_knowledge_encrypted
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-H", "User-Agent: HealthCheck", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    user: "1001:1001"
+
+  # Celery worker with security hardening
+  worker:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: iris_worker_prod
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:@db:5432/${POSTGRES_DB:-iris_db}
+      - REDIS_URL=redis://:@redis:6379/0
+      - SECRET_KEY_FILE=/run/secrets/app_secret_key
+      - ENCRYPTION_KEY_FILE=/run/secrets/app_encryption_key
+      - ML_SECURITY_ENABLED=true
+      - PHI_ENCRYPTION_ENABLED=true
+    volumes:
+      - worker_logs:/app/logs
+      - model_cache:/app/models
+    secrets:
+      - app_secret_key
+      - app_encryption_key
+      - postgres_password
+      - redis_password
+      - medical_knowledge_encrypted
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "app.core.tasks", "worker", "--loglevel=info", "--without-gossip", "--without-mingle"]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "1001:1001"
+
+  # Celery beat scheduler with security hardening
+  scheduler:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: iris_scheduler_prod
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:@db:5432/${POSTGRES_DB:-iris_db}
+      - REDIS_URL=redis://:@redis:6379/0
+      - SECRET_KEY_FILE=/run/secrets/app_secret_key
+      - ENCRYPTION_KEY_FILE=/run/secrets/app_encryption_key
+    volumes:
+      - scheduler_logs:/app/logs
+    secrets:
+      - app_secret_key
+      - app_encryption_key
+      - postgres_password
+      - redis_password
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "app.core.tasks", "beat", "--loglevel=info"]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "1001:1001"
+
+  # MinIO with security hardening
+  minio:
+    image: minio/minio:latest
+    container_name: iris_minio_prod
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+      MINIO_KMS_SECRET_KEY_FILE: /run/secrets/minio_kms_key
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_COMPRESSION_ENABLE: "on"
+      MINIO_COMPRESSION_EXTENSIONS: .pdf,.doc,.docx,.txt,.jpg,.png,.dicom
+      MINIO_SCANNER: "on"
+      MINIO_PROMETHEUS_AUTH_TYPE: "public"
+      # Security settings
+      MINIO_SERVER_URL: https://${MINIO_DOMAIN:-localhost:9000}
+      MINIO_BROWSER_REDIRECT_URL: https://${MINIO_CONSOLE_DOMAIN:-localhost:9001}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    secrets:
+      - minio_root_user
+      - minio_root_password
+      - minio_kms_key
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    user: "1001:1001"
+
+  # Security monitoring and logging (optional)
+  security_monitor:
+    image: prom/node-exporter:latest
+    container_name: iris_security_monitor
+    ports:
+      - "${MONITORING_PORT:-9100}:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "nobody"
+
+# Docker secrets for production security
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  redis_password:
+    file: ./secrets/redis_password.txt
+  app_secret_key:
+    file: ./secrets/app_secret_key.txt
+  app_encryption_key:
+    file: ./secrets/app_encryption_key.txt
+  jwt_secret_key:
+    file: ./secrets/jwt_secret_key.txt
+  minio_root_user:
+    file: ./secrets/minio_root_user.txt
+  minio_root_password:
+    file: ./secrets/minio_root_password.txt
+  minio_kms_key:
+    file: ./secrets/minio_kms_key.txt
+  medical_knowledge_encrypted:
+    file: ./secrets/medical_knowledge.enc
+
+# Secure volume configuration
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/iris/postgres
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/iris/redis
+  minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/iris/minio
+  app_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/iris/app
+  worker_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/iris/worker
+  scheduler_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/iris/scheduler
+  model_cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/iris/models
+
+# Security network configuration
+networks:
+  default:
+    name: iris_secure_network
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: iris_secure
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"

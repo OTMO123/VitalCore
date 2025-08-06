@@ -1,0 +1,141 @@
+---
+# Vault Auth Configuration
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: healthcare-vault-auth
+  namespace: healthcare-api
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: healthcare-api
+    serviceAccount: healthcare-api-sa
+  # Vault connection details
+  vaultConnectionRef: vault-connection
+---
+# Vault Connection
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultConnection
+metadata:
+  name: vault-connection
+  namespace: healthcare-api
+spec:
+  # Address will be set via environment variable
+  address: "https://vault.healthcare.local:8200"
+  # TLS configuration
+  tlsConfig:
+    skipVerify: false
+    caCertSecretRef: vault-ca-cert
+---
+# Database Secrets from Vault
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: postgres-credentials
+  namespace: healthcare-database
+spec:
+  type: kv-v2
+  mount: healthcare-secrets
+  path: database/postgres
+  destination:
+    name: postgres-credentials
+    create: true
+  refreshAfter: 30m
+  vaultAuthRef: healthcare-vault-auth
+---
+# Application Secrets from Vault
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: app-secrets
+  namespace: healthcare-api
+spec:
+  type: kv-v2
+  mount: healthcare-secrets
+  path: application/api
+  destination:
+    name: app-secrets
+    create: true
+  refreshAfter: 15m
+  vaultAuthRef: healthcare-vault-auth
+---
+# JWT Signing Keys from Vault
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: jwt-signing-keys
+  namespace: healthcare-api
+spec:
+  type: kv-v2
+  mount: healthcare-secrets
+  path: application/jwt
+  destination:
+    name: jwt-signing-keys
+    create: true
+  refreshAfter: 1h
+  vaultAuthRef: healthcare-vault-auth
+---
+# Encryption Keys from Vault
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: encryption-keys
+  namespace: healthcare-api
+spec:
+  type: kv-v2
+  mount: healthcare-secrets
+  path: application/encryption
+  destination:
+    name: encryption-keys
+    create: true
+  refreshAfter: 24h  # Encryption keys rotate daily
+  vaultAuthRef: healthcare-vault-auth
+---
+# Redis Auth from Vault
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: redis-auth
+  namespace: healthcare-api
+spec:
+  type: kv-v2
+  mount: healthcare-secrets
+  path: cache/redis
+  destination:
+    name: redis-auth
+    create: true
+  refreshAfter: 1h
+  vaultAuthRef: healthcare-vault-auth
+---
+# MinIO Credentials from Vault
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: minio-credentials
+  namespace: healthcare-api
+spec:
+  type: kv-v2
+  mount: healthcare-secrets
+  path: storage/minio
+  destination:
+    name: minio-credentials
+    create: true
+  refreshAfter: 2h
+  vaultAuthRef: healthcare-vault-auth
+---
+# IRIS API Credentials from Vault
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: iris-api-credentials
+  namespace: healthcare-api
+spec:
+  type: kv-v2
+  mount: healthcare-secrets
+  path: external-apis/iris
+  destination:
+    name: iris-api-credentials
+    create: true
+  refreshAfter: 4h
+  vaultAuthRef: healthcare-vault-auth

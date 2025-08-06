@@ -1,0 +1,172 @@
+{
+  "summary": {
+    "total_tests": 26,
+    "passed": 23,
+    "failed": 3,
+    "success_rate": 88.46153846153845,
+    "timestamp": "2025-07-23T00:20:28.061922"
+  },
+  "test_results": [
+    {
+      "test": "RADIOLOGIST - patient:cross",
+      "success": true,
+      "details": "Expected: True, Got: True",
+      "timestamp": "2025-07-23T00:20:28.060783"
+    },
+    {
+      "test": "REFERRING_PHYSICIAN - patient:cross",
+      "success": true,
+      "details": "Expected: False, Got: False",
+      "timestamp": "2025-07-23T00:20:28.060807"
+    },
+    {
+      "test": "STUDENT - phi:dicom",
+      "success": true,
+      "details": "Expected: False, Got: False",
+      "timestamp": "2025-07-23T00:20:28.060818"
+    },
+    {
+      "test": "RESEARCHER - phi:dicom",
+      "success": true,
+      "details": "Expected: False, Got: False",
+      "timestamp": "2025-07-23T00:20:28.060828"
+    },
+    {
+      "test": "DICOM_ADMIN - orthanc:config",
+      "success": true,
+      "details": "Expected: True, Got: True",
+      "timestamp": "2025-07-23T00:20:28.060837"
+    },
+    {
+      "test": "CLINICAL_STAFF - dicom:upload",
+      "success": true,
+      "details": "Expected: False, Got: False",
+      "timestamp": "2025-07-23T00:20:28.060846"
+    },
+    {
+      "test": "Radiologist sync",
+      "success": true,
+      "details": "Document created: adba85b6-eb40-467b-b699-5133b8a7c8a3",
+      "timestamp": "2025-07-23T00:20:28.061018"
+    },
+    {
+      "test": "Technician sync",
+      "success": true,
+      "details": "Document created: 783bc259-f80f-44f8-b949-79a40419205e",
+      "timestamp": "2025-07-23T00:20:28.061062"
+    },
+    {
+      "test": "Student sync",
+      "success": true,
+      "details": "Permission denied as expected: User role STUDENT lacks DICOM_UPLOAD permission",
+      "timestamp": "2025-07-23T00:20:28.061130"
+    },
+    {
+      "test": "Researcher sync",
+      "success": true,
+      "details": "Permission denied as expected: User role RESEARCHER lacks DICOM_UPLOAD permission",
+      "timestamp": "2025-07-23T00:20:28.061154"
+    },
+    {
+      "test": "Radiologist cross-patient search",
+      "success": false,
+      "details": "Found 5 documents (expected 3)",
+      "timestamp": "2025-07-23T00:20:28.061360"
+    },
+    {
+      "test": "Physician single patient",
+      "success": false,
+      "details": "Search denied as expected",
+      "timestamp": "2025-07-23T00:20:28.061372"
+    },
+    {
+      "test": "Physician cross-patient",
+      "success": true,
+      "details": "Search denied as expected",
+      "timestamp": "2025-07-23T00:20:28.061381"
+    },
+    {
+      "test": "Student with patient",
+      "success": false,
+      "details": "Search denied as expected",
+      "timestamp": "2025-07-23T00:20:28.061393"
+    },
+    {
+      "test": "Radiologist PHI access",
+      "success": true,
+      "details": "PHI access: True (expected: True)",
+      "timestamp": "2025-07-23T00:20:28.061443"
+    },
+    {
+      "test": "Student PHI protection",
+      "success": true,
+      "details": "PHI access: False (expected: False)",
+      "timestamp": "2025-07-23T00:20:28.061462"
+    },
+    {
+      "test": "Researcher PHI protection",
+      "success": true,
+      "details": "PHI access: False (expected: False)",
+      "timestamp": "2025-07-23T00:20:28.061475"
+    },
+    {
+      "test": "Document sync audit logging",
+      "success": true,
+      "details": "Created 1 audit log entries",
+      "timestamp": "2025-07-23T00:20:28.061533"
+    },
+    {
+      "test": "RBAC audit logging",
+      "success": true,
+      "details": "RBAC system logged 40 permission checks",
+      "timestamp": "2025-07-23T00:20:28.061538"
+    },
+    {
+      "test": "Admin stats access",
+      "success": true,
+      "details": "Retrieved stats: 7 documents",
+      "timestamp": "2025-07-23T00:20:28.061704"
+    },
+    {
+      "test": "Radiologist stats access",
+      "success": true,
+      "details": "Stats access denied as expected",
+      "timestamp": "2025-07-23T00:20:28.061738"
+    },
+    {
+      "test": "Student stats access",
+      "success": true,
+      "details": "Stats access denied as expected",
+      "timestamp": "2025-07-23T00:20:28.061747"
+    },
+    {
+      "test": "Document persistence",
+      "success": true,
+      "details": "Document a6ab6c08-4a67-4813-aa4b-30fbba45a5de successfully stored and retrieved",
+      "timestamp": "2025-07-23T00:20:28.061790"
+    },
+    {
+      "test": "Data integrity - Instance ID",
+      "success": true,
+      "details": "Instance ID: PERSISTENCE_TEST",
+      "timestamp": "2025-07-23T00:20:28.061794"
+    },
+    {
+      "test": "Data integrity - Patient ID",
+      "success": true,
+      "details": "Patient ID: p1",
+      "timestamp": "2025-07-23T00:20:28.061803"
+    },
+    {
+      "test": "Metadata structure",
+      "success": true,
+      "details": "Metadata keys: ['dicom', 'sync']",
+      "timestamp": "2025-07-23T00:20:28.061816"
+    }
+  ],
+  "system_state": {
+    "documents": 8,
+    "audit_logs": 8,
+    "rbac_logs": 45
+  }
+}

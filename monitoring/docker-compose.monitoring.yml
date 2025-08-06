@@ -1,0 +1,285 @@
+# Docker Compose for Complete Healthcare Monitoring Stack
+# Grafana + Prometheus + Alertmanager + Exporters
+
+version: '3.8'
+
+services:
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: healthcare-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - ./prometheus/healthcare_rules.yml:/etc/prometheus/healthcare_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--log.level=info'
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9090"
+
+  # Grafana - Visualization and Dashboards
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: healthcare-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/healthcare-dashboard.json:/var/lib/grafana/dashboards/healthcare-dashboard.json
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=healthcare_admin_2025
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=smtp.company.com:587
+      - GF_SMTP_USER=alerts@company.com
+      - GF_SMTP_PASSWORD=smtp_password
+      - GF_SMTP_FROM_ADDRESS=healthcare-monitoring@company.com
+      - GF_ALERTING_ENABLED=true
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Alertmanager - Alert Routing and Notifications
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: healthcare-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--log.level=info'
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+
+  # Node Exporter - System Metrics
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: healthcare-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.systemd'
+      - '--collector.processes'
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+
+  # PostgreSQL Exporter - Database Metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.13.2
+    container_name: healthcare-postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:password@postgres:5432/iris_db?sslmode=disable
+      - PG_EXPORTER_EXTEND_QUERY_PATH=/etc/postgres_exporter/queries.yaml
+    volumes:
+      - ./postgres-exporter/queries.yaml:/etc/postgres_exporter/queries.yaml
+    networks:
+      - healthcare-monitoring
+      - healthcare-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  # Redis Exporter - Cache Metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.53.0
+    container_name: healthcare-redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=""
+    networks:
+      - healthcare-monitoring
+      - healthcare-backend
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  # Blackbox Exporter - External Service Monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: healthcare-blackbox-exporter
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+
+  # NGINX Exporter - Load Balancer Metrics (if using NGINX)
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:0.11.0
+    container_name: healthcare-nginx-exporter
+    ports:
+      - "9113:9113"
+    command:
+      - '-nginx.scrape-uri=http://nginx:8080/nginx_status'
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+
+  # cAdvisor - Container Metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: healthcare-cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+
+  # Loki - Log Aggregation (Optional)
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: healthcare-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+
+  # Promtail - Log Collection Agent (Optional)
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: healthcare-promtail
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - healthcare-monitoring
+    restart: unless-stopped
+    depends_on:
+      - loki
+
+  # Healthcare Application (for reference)
+  healthcare-api:
+    build: ../
+    container_name: healthcare-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/iris_db
+      - REDIS_URL=redis://redis:6379/0
+      - PROMETHEUS_METRICS_ENABLED=true
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - healthcare-monitoring
+      - healthcare-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8000"
+      - "prometheus.io/path=/metrics"
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: healthcare-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=iris_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - healthcare-backend
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: healthcare-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - healthcare-backend
+    restart: unless-stopped
+
+networks:
+  healthcare-monitoring:
+    driver: bridge
+    name: healthcare-monitoring
+  healthcare-backend:
+    driver: bridge
+    name: healthcare-backend
+
+volumes:
+  prometheus_data:
+    name: healthcare-prometheus-data
+  grafana_data:
+    name: healthcare-grafana-data
+  alertmanager_data:
+    name: healthcare-alertmanager-data
+  loki_data:
+    name: healthcare-loki-data
+  postgres_data:
+    name: healthcare-postgres-data
+  redis_data:
+    name: healthcare-redis-data

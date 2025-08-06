@@ -1,0 +1,243 @@
+---
+# Istio Gateway for Healthcare API
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: healthcare-api-gateway
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+    compliance: hipaa
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  # HTTPS traffic
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: healthcare-api-tls-cert
+    hosts:
+    - api.healthcare.yourdomain.com
+    - admin.healthcare.yourdomain.com
+  # HTTP redirect to HTTPS
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - api.healthcare.yourdomain.com
+    - admin.healthcare.yourdomain.com
+    tls:
+      httpsRedirect: true
+---
+# Virtual Service for Healthcare API
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: healthcare-api-vs
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+spec:
+  hosts:
+  - api.healthcare.yourdomain.com
+  - admin.healthcare.yourdomain.com
+  gateways:
+  - healthcare-api-gateway
+  http:
+  # Admin interface routes
+  - match:
+    - headers:
+        host:
+          exact: admin.healthcare.yourdomain.com
+      uri:
+        prefix: /admin
+    route:
+    - destination:
+        host: healthcare-api.healthcare-api.svc.cluster.local
+        port:
+          number: 8000
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 5s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+  # API routes with rate limiting
+  - match:
+    - uri:
+        prefix: /api/v1
+    route:
+    - destination:
+        host: healthcare-api.healthcare-api.svc.cluster.local
+        port:
+          number: 8000
+    fault:
+      delay:
+        percentage:
+          value: 0.01  # 0.01% of requests get delayed
+        fixedDelay: 1s
+    retries:
+      attempts: 3
+      perTryTimeout: 30s
+      retryOn: gateway-error,connect-failure,refused-stream
+    timeout: 60s
+  # Health check routes (no authentication required)
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: healthcare-api.healthcare-api.svc.cluster.local
+        port:
+          number: 8000
+    timeout: 10s
+  # Metrics endpoint (restricted access)
+  - match:
+    - uri:
+        prefix: /metrics
+    route:
+    - destination:
+        host: healthcare-api.healthcare-api.svc.cluster.local
+        port:
+          number: 8001
+    headers:
+      request:
+        add:
+          x-metrics-access: "prometheus"
+  # Default route with authentication
+  - route:
+    - destination:
+        host: healthcare-api.healthcare-api.svc.cluster.local
+        port:
+          number: 8000
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+    timeout: 60s
+---
+# Destination Rule for Healthcare API
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: healthcare-api-dr
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+spec:
+  host: healthcare-api.healthcare-api.svc.cluster.local
+  trafficPolicy:
+    # Connection pool settings
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 30s
+        keepAlive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        consecutiveGatewayErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+        minHealthPercent: 30
+    # Load balancer settings
+    loadBalancer:
+      simple: LEAST_REQUEST
+    # Circuit breaker
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+  portLevelSettings:
+  - port:
+      number: 8000
+    connectionPool:
+      tcp:
+        maxConnections: 50
+      http:
+        http1MaxPendingRequests: 25
+        maxRequestsPerConnection: 5
+---
+# Service Entry for external IRIS API
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: iris-api-external
+  namespace: healthcare-api
+spec:
+  hosts:
+  - api.iris-healthcare.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 80
+    name: http
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+# Virtual Service for external IRIS API
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: iris-api-external-vs
+  namespace: healthcare-api
+spec:
+  hosts:
+  - api.iris-healthcare.com
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: api.iris-healthcare.com
+        port:
+          number: 443
+    retries:
+      attempts: 3
+      perTryTimeout: 30s
+      retryOn: gateway-error,connect-failure,refused-stream
+    timeout: 60s
+---
+# Destination Rule for external IRIS API
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: iris-api-external-dr
+  namespace: healthcare-api
+spec:
+  host: api.iris-healthcare.com
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      sni: api.iris-healthcare.com
+    connectionPool:
+      tcp:
+        maxConnections: 20
+        connectTimeout: 30s
+      http:
+        http1MaxPendingRequests: 10
+        maxRequestsPerConnection: 2
+        maxRetries: 3
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 60s

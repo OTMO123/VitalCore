@@ -1,0 +1,293 @@
+name: 🛡️ Repository Protection Rules
+
+# This workflow ensures NO destructive operations can run accidentally
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Protection Action'
+        required: true
+        type: choice
+        options:
+          - validate-protection
+          - emergency-check
+  
+  # Run protection validation on any workflow trigger
+  push:
+    branches: [ main, develop ]
+
+env:
+  PROTECTION_LEVEL: MAXIMUM
+  DESTRUCTIVE_OPERATIONS_BLOCKED: true
+  DATA_PRESERVATION_ENFORCED: true
+
+jobs:
+  # ============================================
+  # Protection Validation
+  # ============================================
+  protection-validation:
+    name: 🛡️ Repository Protection Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    outputs:
+      protection-status: ${{ steps.validation.outputs.status }}
+      destructive-patterns: ${{ steps.validation.outputs.destructive-count }}
+      safety-score: ${{ steps.validation.outputs.safety-score }}
+    
+    steps:
+      - name: 📥 Checkout Code (Protection Mode)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: 🔍 Validate Protection Rules
+        id: validation
+        run: |
+          echo "🛡️ Validating repository protection rules..."
+          
+          # Check for destructive patterns in all files
+          DESTRUCTIVE_PATTERNS=(
+            "DROP TABLE"
+            "DELETE FROM users"
+            "DELETE FROM patients"
+            "DELETE FROM audit_logs"
+            "TRUNCATE"
+            "rm -rf /"
+            "rm -rf app"
+            "rm -rf data"
+            "docker system prune -a"
+            "docker volume rm"
+            "docker container rm -f"
+            "ALTER TABLE.*DROP"
+            "DROP DATABASE"
+            "DROP SCHEMA"
+          )
+          
+          DESTRUCTIVE_COUNT=0
+          DANGEROUS_FILES=()
+          
+          echo "🔍 Scanning for destructive patterns..."
+          for pattern in "${DESTRUCTIVE_PATTERNS[@]}"; do
+            echo "Checking pattern: $pattern"
+            
+            # Search in all relevant files, exclude .git and build artifacts
+            MATCHES=$(grep -r "$pattern" . \
+              --exclude-dir=.git \
+              --exclude-dir=node_modules \
+              --exclude-dir=__pycache__ \
+              --exclude-dir=.pytest_cache \
+              --exclude="*.pyc" \
+              --exclude="*.log" \
+              --exclude="*.md" \
+              2>/dev/null || true)
+            
+            if [[ -n "$MATCHES" ]]; then
+              echo "⚠️  FOUND DESTRUCTIVE PATTERN: $pattern"
+              echo "$MATCHES"
+              DESTRUCTIVE_COUNT=$((DESTRUCTIVE_COUNT + 1))
+              DANGEROUS_FILES+=("$pattern")
+            fi
+          done
+          
+          # Check for data protection patterns
+          DATA_PROTECTION_PATTERNS=(
+            "PRESERVE_EXISTING_DATA"
+            "backup"
+            "safe_mode"
+            "test_isolation"
+            "read_only"
+          )
+          
+          PROTECTION_COUNT=0
+          for pattern in "${DATA_PROTECTION_PATTERNS[@]}"; do
+            if grep -r "$pattern" . --exclude-dir=.git 2>/dev/null >/dev/null; then
+              PROTECTION_COUNT=$((PROTECTION_COUNT + 1))
+            fi
+          done
+          
+          # Calculate safety score
+          if [[ $DESTRUCTIVE_COUNT -eq 0 && $PROTECTION_COUNT -ge 2 ]]; then
+            SAFETY_SCORE=100
+            PROTECTION_STATUS="SECURE"
+            echo "✅ Repository protection: SECURE"
+          elif [[ $DESTRUCTIVE_COUNT -eq 0 ]]; then
+            SAFETY_SCORE=85
+            PROTECTION_STATUS="GOOD"
+            echo "✅ Repository protection: GOOD"
+          elif [[ $DESTRUCTIVE_COUNT -le 2 ]]; then
+            SAFETY_SCORE=60
+            PROTECTION_STATUS="NEEDS_REVIEW"
+            echo "⚠️  Repository protection: NEEDS_REVIEW"
+          else
+            SAFETY_SCORE=25
+            PROTECTION_STATUS="UNSAFE"
+            echo "❌ Repository protection: UNSAFE"
+          fi
+          
+          echo "📊 Protection Summary:"
+          echo "- Destructive patterns found: $DESTRUCTIVE_COUNT"
+          echo "- Protection patterns found: $PROTECTION_COUNT"
+          echo "- Safety score: $SAFETY_SCORE/100"
+          echo "- Protection status: $PROTECTION_STATUS"
+          
+          # Output results
+          echo "status=${PROTECTION_STATUS}" >> $GITHUB_OUTPUT
+          echo "destructive-count=${DESTRUCTIVE_COUNT}" >> $GITHUB_OUTPUT
+          echo "safety-score=${SAFETY_SCORE}" >> $GITHUB_OUTPUT
+          
+          # Fail the job if unsafe
+          if [[ "$PROTECTION_STATUS" == "UNSAFE" ]]; then
+            echo "❌ CRITICAL: Repository contains unsafe patterns!"
+            echo "🛡️ Protection rules VIOLATED!"
+            exit 1
+          fi
+      
+      - name: 🔒 Validate Critical Files Protection
+        run: |
+          echo "🔒 Validating critical files protection..."
+          
+          CRITICAL_FILES=(
+            "app/main.py"
+            "docker-compose.yml"
+            "requirements.txt"
+            "alembic.ini"
+            "app/core/database_unified.py"
+            "app/core/security.py"
+          )
+          
+          PROTECTED_FILES=0
+          for file in "${CRITICAL_FILES[@]}"; do
+            if [[ -f "$file" ]]; then
+              echo "✅ Critical file exists: $file"
+              PROTECTED_FILES=$((PROTECTED_FILES + 1))
+              
+              # Check if file has backup protection
+              if grep -q "backup\|preserve\|safe" "$file" 2>/dev/null; then
+                echo "  🛡️ File has protection patterns"
+              fi
+            else
+              echo "⚠️  Critical file missing: $file"
+            fi
+          done
+          
+          echo "📊 Critical files protected: $PROTECTED_FILES/${#CRITICAL_FILES[@]}"
+          
+          if [[ $PROTECTED_FILES -ge 4 ]]; then
+            echo "✅ Critical files protection: GOOD"
+          else
+            echo "⚠️  Critical files protection: NEEDS_IMPROVEMENT"
+          fi
+
+  # ============================================
+  # Emergency Safety Check
+  # ============================================
+  emergency-safety-check:
+    name: 🚨 Emergency Safety Check
+    runs-on: ubuntu-latest
+    needs: protection-validation
+    if: github.event.inputs.action == 'emergency-check' || needs.protection-validation.outputs.protection-status == 'UNSAFE'
+    timeout-minutes: 3
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: 🚨 Emergency Protection Analysis
+        run: |
+          echo "🚨 EMERGENCY SAFETY CHECK ACTIVATED"
+          echo "Protection Status: ${{ needs.protection-validation.outputs.protection-status }}"
+          echo "Safety Score: ${{ needs.protection-validation.outputs.safety-score }}/100"
+          echo "Destructive Patterns: ${{ needs.protection-validation.outputs.destructive-patterns }}"
+          
+          if [[ "${{ needs.protection-validation.outputs.protection-status }}" == "UNSAFE" ]]; then
+            echo ""
+            echo "❌ CRITICAL SAFETY ALERT"
+            echo "🛡️ Repository protection rules VIOLATED"
+            echo "🚨 Immediate action required:"
+            echo "  1. Review destructive patterns found"
+            echo "  2. Remove or comment out dangerous code"
+            echo "  3. Add safety protections"
+            echo "  4. Re-run protection validation"
+            echo ""
+            echo "🔒 All CI/CD operations should be HALTED until fixed"
+            
+            # Create emergency alert file
+            cat > EMERGENCY_SAFETY_ALERT.md << EOF
+          # 🚨 EMERGENCY SAFETY ALERT
+          
+          **CRITICAL**: Repository protection rules violated!
+          
+          ## Issues Found
+          - Destructive patterns detected: ${{ needs.protection-validation.outputs.destructive-patterns }}
+          - Safety score: ${{ needs.protection-validation.outputs.safety-score }}/100
+          
+          ## Immediate Actions Required
+          1. 🔍 Review code for destructive operations
+          2. 🛡️ Add safety protections
+          3. ✅ Re-validate protection rules
+          
+          ## Safety Guidelines
+          - No DROP TABLE operations
+          - No DELETE FROM critical tables
+          - No rm -rf commands
+          - Always use safe_mode flags
+          - Preserve existing data
+          
+          Date: $(date)
+          EOF
+            
+            echo "📄 Emergency alert file created"
+          else
+            echo "✅ Emergency check passed - repository is safe"
+          fi
+
+  # ============================================
+  # Protection Report
+  # ============================================
+  protection-report:
+    name: 📋 Protection Status Report
+    runs-on: ubuntu-latest
+    needs: [protection-validation, emergency-safety-check]
+    if: always()
+    
+    steps:
+      - name: 📋 Generate Protection Report
+        run: |
+          echo "# 🛡️ Repository Protection Status Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Protection Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Protection Status**: ${{ needs.protection-validation.outputs.protection-status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Safety Score**: ${{ needs.protection-validation.outputs.safety-score }}/100" >> $GITHUB_STEP_SUMMARY
+          echo "- **Destructive Patterns**: ${{ needs.protection-validation.outputs.destructive-patterns }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Color-coded status
+          case "${{ needs.protection-validation.outputs.protection-status }}" in
+            "SECURE")
+              echo "## ✅ STATUS: SECURE" >> $GITHUB_STEP_SUMMARY
+              echo "Repository is fully protected and safe for CI/CD operations." >> $GITHUB_STEP_SUMMARY
+              ;;
+            "GOOD")
+              echo "## 🟢 STATUS: GOOD" >> $GITHUB_STEP_SUMMARY
+              echo "Repository has good protection with minor improvements possible." >> $GITHUB_STEP_SUMMARY
+              ;;
+            "NEEDS_REVIEW")
+              echo "## 🟡 STATUS: NEEDS REVIEW" >> $GITHUB_STEP_SUMMARY
+              echo "Repository has some protection concerns that should be addressed." >> $GITHUB_STEP_SUMMARY
+              ;;
+            "UNSAFE")
+              echo "## 🔴 STATUS: UNSAFE" >> $GITHUB_STEP_SUMMARY
+              echo "❌ CRITICAL: Repository contains unsafe patterns!" >> $GITHUB_STEP_SUMMARY
+              echo "🚨 All CI/CD operations should be halted until fixed." >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🛡️ Protection Features Active" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Destructive pattern detection" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Critical file validation" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Data preservation enforcement" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Emergency safety protocols" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps**: ${{ needs.protection-validation.outputs.protection-status == 'SECURE' && 'Proceed with confidence' || 'Review and fix protection issues' }}" >> $GITHUB_STEP_SUMMARY

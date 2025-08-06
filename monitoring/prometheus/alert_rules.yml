@@ -1,0 +1,247 @@
+# Healthcare Backend Alert Rules
+# Production alerts for critical healthcare system monitoring
+
+groups:
+  # Critical Healthcare System Alerts
+  - name: healthcare_critical_alerts
+    rules:
+      # API Availability
+      - alert: HealthcareAPIDown
+        expr: up{job="healthcare-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: healthcare-api
+          compliance: HIPAA
+        annotations:
+          summary: "Healthcare API is down"
+          description: "Healthcare API has been down for more than 1 minute. This affects patient care delivery."
+          runbook_url: "https://docs.company.com/runbooks/api-down"
+
+      # Database Connectivity
+      - alert: DatabaseConnectionFailure
+        expr: up{job="postgresql"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: database
+          compliance: SOC2
+        annotations:
+          summary: "Database connection failure"
+          description: "PostgreSQL database is unreachable. All PHI operations are affected."
+          runbook_url: "https://docs.company.com/runbooks/database-failure"
+
+      # PHI Data Breach Detection
+      - alert: UnauthorizedPHIAccess
+        expr: increase(healthcare_phi_access_denied_total[5m]) > 10
+        for: 0s
+        labels:
+          severity: critical
+          service: security
+          compliance: HIPAA
+          breach_risk: high
+        annotations:
+          summary: "Potential PHI data breach detected"
+          description: "Multiple unauthorized PHI access attempts detected in the last 5 minutes."
+          runbook_url: "https://docs.company.com/runbooks/security-breach"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: (rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: healthcare-api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes."
+
+  # Healthcare Business Logic Alerts
+  - name: healthcare_business_alerts
+    rules:
+      # FHIR Validation Failures
+      - alert: FHIRValidationFailures
+        expr: increase(healthcare_fhir_validation_failed_total[10m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: fhir-validation
+          compliance: FHIR_R4
+        annotations:
+          summary: "High FHIR validation failure rate"
+          description: "{{ $value }} FHIR validation failures in the last 10 minutes."
+
+      # Audit Log Processing Delays
+      - alert: AuditLogProcessingDelay
+        expr: healthcare_audit_buffer_size > 5000
+        for: 5m
+        labels:
+          severity: warning
+          service: audit-logging
+          compliance: SOC2
+        annotations:
+          summary: "Audit log processing delay"
+          description: "Audit log buffer has {{ $value }} pending entries."
+
+      # Consent Validation Failures
+      - alert: ConsentValidationFailures
+        expr: increase(healthcare_consent_validation_failed_total[15m]) > 20
+        for: 3m
+        labels:
+          severity: warning
+          service: consent-management
+          compliance: HIPAA
+        annotations:
+          summary: "High consent validation failure rate"
+          description: "{{ $value }} consent validation failures in the last 15 minutes."
+
+  # Performance Alerts
+  - name: healthcare_performance_alerts
+    rules:
+      # Response Time SLA
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          service: healthcare-api
+          sla: response_time
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # Database Connection Pool Exhaustion
+      - alert: DatabasePoolExhaustion
+        expr: (healthcare_db_connections_active / healthcare_db_connections_max) > 0.9
+        for: 2m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Database connection pool is {{ $value | humanizePercentage }} full"
+
+      # Redis Cache Miss Rate
+      - alert: HighCacheMissRate
+        expr: (rate(healthcare_cache_misses_total[10m]) / rate(healthcare_cache_requests_total[10m])) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          service: redis-cache
+        annotations:
+          summary: "High cache miss rate"
+          description: "Cache miss rate is {{ $value | humanizePercentage }}"
+
+  # Security Alerts
+  - name: healthcare_security_alerts
+    rules:
+      # Rate Limiting Triggered
+      - alert: RateLimitingTriggered
+        expr: increase(healthcare_rate_limit_exceeded_total[5m]) > 100
+        for: 1m
+        labels:
+          severity: warning
+          service: security
+          attack_type: rate_limiting
+        annotations:
+          summary: "High rate limiting activity"
+          description: "{{ $value }} rate limit violations in the last 5 minutes"
+
+      # Failed Authentication Attempts
+      - alert: HighFailedAuthAttempts
+        expr: increase(healthcare_auth_failed_total[10m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: authentication
+          attack_type: brute_force
+        annotations:
+          summary: "High failed authentication attempts"
+          description: "{{ $value }} failed authentication attempts in the last 10 minutes"
+
+      # JWT Token Anomalies
+      - alert: JWTTokenAnomalies
+        expr: increase(healthcare_jwt_invalid_total[5m]) > 25
+        for: 1m
+        labels:
+          severity: warning
+          service: authentication
+          attack_type: token_manipulation
+        annotations:
+          summary: "JWT token anomalies detected"
+          description: "{{ $value }} invalid JWT tokens in the last 5 minutes"
+
+  # Infrastructure Alerts
+  - name: healthcare_infrastructure_alerts
+    rules:
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_free_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: infrastructure
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is {{ $value | humanizePercentage }} full"
+
+  # Compliance Monitoring
+  - name: healthcare_compliance_alerts
+    rules:
+      # Audit Log Gaps
+      - alert: AuditLogGaps
+        expr: increase(healthcare_audit_events_total[1h]) == 0
+        for: 15m
+        labels:
+          severity: critical
+          service: audit-logging
+          compliance: SOC2_HIPAA
+        annotations:
+          summary: "Audit logging appears to have stopped"
+          description: "No audit events recorded in the last hour"
+
+      # Encryption Service Failure
+      - alert: EncryptionServiceFailure
+        expr: increase(healthcare_encryption_failed_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: encryption
+          compliance: HIPAA
+        annotations:
+          summary: "PHI encryption service failures"
+          description: "{{ $value }} encryption failures in the last 5 minutes"
+
+      # Data Retention Policy Violations
+      - alert: DataRetentionViolation
+        expr: healthcare_data_retention_violations_total > 0
+        for: 0s
+        labels:
+          severity: critical
+          service: data-management
+          compliance: HIPAA_SOC2
+        annotations:
+          summary: "Data retention policy violation detected"
+          description: "{{ $value }} data retention violations detected"

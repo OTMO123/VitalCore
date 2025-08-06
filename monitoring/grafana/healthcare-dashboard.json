@@ -1,0 +1,498 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Healthcare Records Backend - Production Dashboard",
+    "tags": ["healthcare", "production", "hipaa", "soc2"],
+    "style": "dark",
+    "timezone": "browser",
+    "editable": true,
+    "hideControls": false,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"],
+      "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
+    },
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "🏥 Healthcare System Overview",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"healthcare-api\"}",
+            "legendFormat": "API Status",
+            "refId": "A"
+          },
+          {
+            "expr": "up{job=\"postgresql\"}",
+            "legendFormat": "Database Status",
+            "refId": "B"
+          },
+          {
+            "expr": "up{job=\"redis\"}",
+            "legendFormat": "Cache Status",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "displayMode": "basic"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "color": "red",
+                    "text": "DOWN"
+                  },
+                  "1": {
+                    "color": "green",
+                    "text": "UP"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "🔒 HIPAA Compliance Metrics",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(healthcare_phi_access_total[1h]))",
+            "legendFormat": "PHI Access Events/Hour",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(increase(healthcare_audit_events_total[1h]))",
+            "legendFormat": "Audit Events/Hour",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(increase(healthcare_consent_validations_total[1h]))",
+            "legendFormat": "Consent Validations/Hour",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "📊 API Performance Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{endpoint}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "yAxes": [
+          {
+            "label": "Requests/sec",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ],
+        "xAxis": {
+          "show": true
+        },
+        "tooltip": {
+          "shared": true,
+          "sort": 2,
+          "value_type": "individual"
+        }
+      },
+      {
+        "id": 4,
+        "title": "⏱️ Response Time Distribution",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "50th percentile",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "95th percentile",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "99th percentile",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "yAxes": [
+          {
+            "label": "Seconds",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "🗄️ Database Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "healthcare_db_connections_active",
+            "legendFormat": "Active Connections",
+            "refId": "A"
+          },
+          {
+            "expr": "healthcare_db_connections_max",
+            "legendFormat": "Max Connections",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(healthcare_db_queries_total[5m])",
+            "legendFormat": "Queries/sec",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "yAxes": [
+          {
+            "label": "Count",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "⚡ Redis Cache Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(healthcare_cache_hits_total[5m])",
+            "legendFormat": "Cache Hits/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(healthcare_cache_misses_total[5m])",
+            "legendFormat": "Cache Misses/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "healthcare_cache_hit_rate",
+            "legendFormat": "Hit Rate %",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "yAxes": [
+          {
+            "label": "Rate",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "🛡️ Security Events Dashboard",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "increase(healthcare_auth_failed_total[5m])",
+            "legendFormat": "Failed Authentications",
+            "refId": "A"
+          },
+          {
+            "expr": "increase(healthcare_rate_limit_exceeded_total[5m])",
+            "legendFormat": "Rate Limit Violations",
+            "refId": "B"
+          },
+          {
+            "expr": "increase(healthcare_phi_access_denied_total[5m])",
+            "legendFormat": "PHI Access Denied",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "yAxes": [
+          {
+            "label": "Events/5min",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [10],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "for": "2m",
+          "frequency": "30s",
+          "handler": 1,
+          "name": "Security Events Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 8,
+        "title": "📋 FHIR Compliance Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(healthcare_fhir_validation_success_total[5m])",
+            "legendFormat": "FHIR Validations Success/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(healthcare_fhir_validation_failed_total[5m])",
+            "legendFormat": "FHIR Validations Failed/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "healthcare_fhir_validation_success_rate",
+            "legendFormat": "Success Rate %",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "yAxes": [
+          {
+            "label": "Rate",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "💽 System Resources",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "CPU Usage %",
+            "refId": "A"
+          },
+          {
+            "expr": "(node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100",
+            "legendFormat": "Memory Usage %",
+            "refId": "B"
+          },
+          {
+            "expr": "(node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100",
+            "legendFormat": "Disk Usage %",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+        "yAxes": [
+          {
+            "label": "Percentage",
+            "min": 0,
+            "max": 100
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "📝 Audit Log Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "healthcare_audit_buffer_size",
+            "legendFormat": "Buffer Size",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(healthcare_audit_events_processed_total[5m])",
+            "legendFormat": "Events Processed/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "healthcare_audit_processing_duration_seconds",
+            "legendFormat": "Processing Duration",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+        "yAxes": [
+          {
+            "label": "Count/Duration",
+            "min": 0
+          },
+          {
+            "show": false
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "🔄 External Dependencies",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "probe_success{job=\"blackbox-iris-api\"}",
+            "legendFormat": "IRIS API",
+            "refId": "A"
+          },
+          {
+            "expr": "probe_ssl_earliest_cert_expiry{job=\"ssl-certificates\"} - time()",
+            "legendFormat": "SSL Cert Days Left",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "color": "red",
+                    "text": "FAILED"
+                  },
+                  "1": {
+                    "color": "green",
+                    "text": "SUCCESS"
+                  }
+                },
+                "type": "value"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "📈 Business Metrics",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(healthcare_patients_created_total[1d]))",
+            "legendFormat": "Patients Created Today",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(increase(healthcare_immunizations_recorded_total[1d]))",
+            "legendFormat": "Immunizations Today",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(increase(healthcare_documents_uploaded_total[1d]))",
+            "legendFormat": "Documents Uploaded Today",
+            "refId": "C"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "query": "label_values(up, instance)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        },
+        {
+          "name": "job",
+          "type": "query", 
+          "query": "label_values(up, job)",
+          "refresh": 1,
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "expr": "changes(process_start_time_seconds[1h]) > 0",
+          "titleFormat": "Deployment",
+          "textFormat": "Application restarted"
+        }
+      ]
+    }
+  }
+}

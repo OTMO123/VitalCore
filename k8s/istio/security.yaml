@@ -1,0 +1,293 @@
+---
+# PeerAuthentication for mutual TLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: healthcare-api-mtls
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+    compliance: hipaa
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-api
+  mtls:
+    mode: STRICT
+---
+# PeerAuthentication for database namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: healthcare-database-mtls
+  namespace: healthcare-database
+spec:
+  mtls:
+    mode: STRICT
+---
+# Authorization Policy for Healthcare API
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: healthcare-api-authz
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+    compliance: hipaa
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-api
+  action: ALLOW
+  rules:
+  # Allow health checks from any source
+  - from:
+    - source: {}
+    to:
+    - operation:
+        paths: ["/health/*"]
+        methods: ["GET"]
+  # Allow API access with JWT authentication
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/api/v1/*"]
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+    when:
+    - key: request.headers[authorization]
+      values: ["Bearer *"]
+  # Allow metrics access from monitoring namespace
+  - from:
+    - source:
+        namespaces: ["healthcare-monitoring", "istio-system"]
+    to:
+    - operation:
+        paths: ["/metrics"]
+        methods: ["GET"]
+  # Allow admin access with specific roles
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/admin/*"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    when:
+    - key: request.auth.claims[role]
+      values: ["admin", "super_admin"]
+    - key: request.headers[authorization]
+      values: ["Bearer *"]
+---
+# Authorization Policy for Database Access
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: healthcare-database-authz
+  namespace: healthcare-database
+spec:
+  selector:
+    matchLabels:
+      app: postgres-cluster
+  action: ALLOW
+  rules:
+  # Only allow access from healthcare-api namespace
+  - from:
+    - source:
+        namespaces: ["healthcare-api"]
+    to:
+    - operation:
+        ports: ["5432"]
+  # Allow monitoring access
+  - from:
+    - source:
+        namespaces: ["healthcare-monitoring"]
+    to:
+    - operation:
+        ports: ["9187"]  # postgres_exporter
+---
+# Authorization Policy for Redis Access
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: redis-cluster-authz
+  namespace: healthcare-api
+spec:
+  selector:
+    matchLabels:
+      app: redis-cluster
+  action: ALLOW
+  rules:
+  # Only allow access from healthcare-api pods
+  - from:
+    - source:
+        principals: ["cluster.local/ns/healthcare-api/sa/healthcare-api-sa"]
+    to:
+    - operation:
+        ports: ["6380"]  # Redis TLS port
+  # Allow monitoring access
+  - from:
+    - source:
+        namespaces: ["healthcare-monitoring"]
+    to:
+    - operation:
+        ports: ["9121"]  # redis_exporter
+  # Allow inter-cluster communication
+  - from:
+    - source:
+        principals: ["cluster.local/ns/healthcare-api/sa/healthcare-api-sa"]
+    to:
+    - operation:
+        ports: ["16379"]  # cluster bus
+---
+# Request Authentication for JWT validation
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: healthcare-api-jwt
+  namespace: healthcare-api
+  labels:
+    app: healthcare-api
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-api
+  jwtRules:
+  - issuer: "https://healthcare-auth.yourdomain.com"
+    jwksUri: "https://healthcare-auth.yourdomain.com/.well-known/jwks.json"
+    audiences:
+    - "healthcare-api"
+    - "healthcare-admin"
+    forwardOriginalToken: true
+    fromHeaders:
+    - name: Authorization
+      prefix: "Bearer "
+    fromParams:
+    - "access_token"
+---
+# Authorization Policy for External API Access
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: iris-api-external-authz
+  namespace: healthcare-api
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-api
+  action: ALLOW
+  rules:
+  # Allow outbound connections to IRIS API
+  - to:
+    - operation:
+        hosts: ["api.iris-healthcare.com"]
+        ports: ["443"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+  when:
+  - key: source.labels[app]
+    values: ["healthcare-api"]
+---
+# Security Policy for PHI Data Protection
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: phi-data-protection
+  namespace: healthcare-api
+  labels:
+    compliance: hipaa
+    data-classification: phi
+spec:
+  selector:
+    matchLabels:
+      app: healthcare-api
+  action: ALLOW
+  rules:
+  # Strict PHI access control
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/api/v1/patients/*", "/api/v1/medical-records/*"]
+        methods: ["GET", "POST", "PUT", "DELETE"]
+    when:
+    - key: request.auth.claims[role]
+      values: ["doctor", "nurse", "admin", "super_admin"]
+    - key: request.auth.claims[phi_access]
+      values: ["true"]
+    - key: request.headers[x-audit-log]
+      values: ["enabled"]
+  # Read-only access for certain roles
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+    to:
+    - operation:
+        paths: ["/api/v1/patients/*/summary"]
+        methods: ["GET"]
+    when:
+    - key: request.auth.claims[role]
+      values: ["lab_technician", "receptionist"]
+    - key: request.auth.claims[read_access]
+      values: ["true"]
+---
+# Envoy Filter for additional security headers
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: security-headers
+  namespace: healthcare-api
+spec:
+  workloadSelector:
+    labels:
+      app: healthcare-api
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_response
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.local_response.v3.LocalResponse
+          value:
+            body_format:
+              json_format:
+                error: "Access denied - HIPAA compliance violation"
+                timestamp: "%START_TIME%"
+                request_id: "%REQ(x-request-id)%"
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: MERGE
+      value:
+        response_headers_to_add:
+        - header:
+            key: "Strict-Transport-Security"
+            value: "max-age=31536000; includeSubDomains"
+        - header:
+            key: "X-Content-Type-Options"
+            value: "nosniff"
+        - header:
+            key: "X-Frame-Options"
+            value: "DENY"
+        - header:
+            key: "X-XSS-Protection"
+            value: "1; mode=block"
+        - header:
+            key: "Content-Security-Policy"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+        - header:
+            key: "Referrer-Policy"
+            value: "strict-origin-when-cross-origin"
+        - header:
+            key: "X-Healthcare-API"
+            value: "HIPAA-Compliant"

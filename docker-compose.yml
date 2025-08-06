@@ -1,0 +1,241 @@
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: iris_postgres
+    environment:
+      POSTGRES_DB: iris_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./init-enterprise.sql:/docker-entrypoint-initdb.d/02-enterprise.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for background tasks and caching
+  redis:
+    image: redis:7-alpine
+    container_name: iris_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Main application
+  app:
+    build: .
+    container_name: iris_app
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/iris_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=development-secret-key-change-in-production
+      - ENCRYPTION_KEY=development-encryption-key-change-in-production
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Celery worker for background tasks
+  worker:
+    build: .
+    container_name: iris_worker
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/iris_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=development-secret-key-change-in-production
+      - ENCRYPTION_KEY=development-encryption-key-change-in-production
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "app.core.tasks", "worker", "--loglevel=info"]
+
+  # Celery beat scheduler
+  scheduler:
+    build: .
+    container_name: iris_scheduler
+    environment:
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/iris_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=development-secret-key-change-in-production
+      - ENCRYPTION_KEY=development-encryption-key-change-in-production
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "app.core.tasks", "beat", "--loglevel=info"]
+
+  # MinIO object storage for documents
+  minio:
+    image: minio/minio:latest
+    container_name: iris_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minio123secure
+      MINIO_KMS_SECRET_KEY: my-minio-key:OSMM+vkIiXEQKs4K1bL7YYjHp8xQIm9xJFf/F1lPdg0=
+      MINIO_REGION: us-east-1
+      MINIO_COMPRESSION_ENABLE: "on"
+      MINIO_COMPRESSION_EXTENSIONS: .pdf,.doc,.docx,.txt,.jpg,.png,.dicom
+      MINIO_SCANNER: "on"
+    ports:
+      - "9000:9000"
+      - "9001:9001"  # Console port
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Gemma 3N On-Device AI Engine
+  gemma-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.gemma
+    container_name: iris_gemma_engine
+    environment:
+      - GEMMA_MODEL_PATH=/models/gemma-3n-medical
+      - GEMMA_DEVICE=cpu
+      - GEMMA_MAX_MEMORY_GB=4.0
+      - GEMMA_QUANTIZATION_ENABLED=true
+      - MEDICAL_VOCABULARY_PATH=/models/medical_vocab.json
+      - PROCESSING_MODE=hybrid
+      - REDIS_URL=redis://redis:6379/1
+      - DATABASE_URL=postgresql://postgres:password@db:5432/iris_db
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./models:/models:ro
+      - gemma_cache:/cache
+      - ./app/modules/edge_ai:/app/edge_ai
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+        reservations:
+          memory: 4G
+
+  # Whisper Voice-to-Text Service
+  whisper-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.whisper
+    container_name: iris_whisper
+    environment:
+      - WHISPER_MODEL=base.en
+      - WHISPER_DEVICE=cpu
+      - MEDICAL_NER_ENABLED=true
+      - ENCRYPTION_ENABLED=true
+      - REDIS_URL=redis://redis:6379/2
+      - DATABASE_URL=postgresql://postgres:password@db:5432/iris_db
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./models/whisper:/models/whisper:ro
+      - whisper_cache:/cache
+      - whisper_temp:/tmp/whisper
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Medical NER Processing Service
+  medical-ner:
+    build:
+      context: .
+      dockerfile: Dockerfile.ner
+    container_name: iris_medical_ner
+    environment:
+      - NER_MODEL_PATH=/models/medical-ner
+      - SPACY_MODEL=en_core_web_sm
+      - MEDICAL_ENTITIES_ENABLED=true
+      - SNOMED_MAPPING_ENABLED=true
+      - ICD_MAPPING_ENABLED=true
+      - REDIS_URL=redis://redis:6379/3
+      - DATABASE_URL=postgresql://postgres:password@db:5432/iris_db
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./models/ner:/models/ner:ro
+      - ner_cache:/cache
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  gemma_cache:
+  whisper_cache:
+  whisper_temp:
+  ner_cache:

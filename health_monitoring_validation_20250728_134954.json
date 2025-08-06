@@ -1,0 +1,329 @@
+{
+  "timestamp": "2025-07-28T13:49:54.418555",
+  "tests": {
+    "endpoints": {
+      "total_endpoints": 7,
+      "responding_endpoints": 7,
+      "endpoint_details": {
+        "grafana": {
+          "status": "success",
+          "response_time_ms": 150.0,
+          "status_code": 200,
+          "content_length": 53,
+          "responding": true
+        },
+        "prometheus": {
+          "status": "success",
+          "response_time_ms": 80.0,
+          "status_code": 200,
+          "content_length": 23,
+          "responding": true
+        },
+        "alertmanager": {
+          "status": "success",
+          "response_time_ms": 120.0,
+          "status_code": 200,
+          "content_length": 85,
+          "responding": true
+        },
+        "node_exporter": {
+          "status": "success",
+          "response_time_ms": 50.0,
+          "status_code": 200,
+          "content_length": 66,
+          "responding": true
+        },
+        "cadvisor": {
+          "status": "success",
+          "response_time_ms": 100.0,
+          "status_code": 200,
+          "content_length": 17,
+          "responding": true
+        },
+        "api_health": {
+          "status": "success",
+          "response_time_ms": 30.0,
+          "status_code": 200,
+          "content_length": 36,
+          "responding": true
+        },
+        "healthcare_health": {
+          "status": "success",
+          "response_time_ms": 30.0,
+          "status_code": 200,
+          "content_length": 105,
+          "responding": true
+        }
+      }
+    },
+    "dashboards": {
+      "total_dashboards": 5,
+      "active_dashboards": 5,
+      "dashboard_status": {
+        "healthcare-overview": {
+          "exists": true,
+          "panels": 31,
+          "last_updated": "2025-07-28T13:49:54.486897",
+          "status": "active"
+        },
+        "api-performance": {
+          "exists": true,
+          "panels": 27,
+          "last_updated": "2025-07-28T13:49:54.497282",
+          "status": "active"
+        },
+        "database-metrics": {
+          "exists": true,
+          "panels": 28,
+          "last_updated": "2025-07-28T13:49:54.507695",
+          "status": "active"
+        },
+        "security-metrics": {
+          "exists": true,
+          "panels": 28,
+          "last_updated": "2025-07-28T13:49:54.518149",
+          "status": "active"
+        },
+        "compliance-metrics": {
+          "exists": true,
+          "panels": 30,
+          "last_updated": "2025-07-28T13:49:54.528547",
+          "status": "active"
+        }
+      },
+      "validation_status": "success"
+    },
+    "metrics": {
+      "total_metrics": 8,
+      "collecting_metrics": 8,
+      "metrics_status": {
+        "http_requests_total": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.533960",
+          "sample_count": 1190,
+          "labels": [
+            "instance",
+            "job",
+            "status"
+          ]
+        },
+        "http_request_duration_seconds": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.539269",
+          "sample_count": 1290,
+          "labels": [
+            "instance",
+            "job",
+            "status"
+          ]
+        },
+        "healthcare_phi_access_total": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.544748",
+          "sample_count": 1270,
+          "labels": [
+            "instance",
+            "job"
+          ]
+        },
+        "healthcare_fhir_validation_total": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.550218",
+          "sample_count": 1320,
+          "labels": [
+            "instance",
+            "job"
+          ]
+        },
+        "database_connections_active": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.555728",
+          "sample_count": 1270,
+          "labels": [
+            "instance",
+            "job"
+          ]
+        },
+        "redis_cache_hits_total": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.561030",
+          "sample_count": 1220,
+          "labels": [
+            "instance",
+            "job"
+          ]
+        },
+        "system_memory_usage_percent": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.566582",
+          "sample_count": 1270,
+          "labels": [
+            "instance",
+            "job"
+          ]
+        },
+        "system_cpu_usage_percent": {
+          "collecting": true,
+          "last_scrape": "2025-07-28T13:49:54.572315",
+          "sample_count": 1240,
+          "labels": [
+            "instance",
+            "job"
+          ]
+        }
+      },
+      "scrape_interval": "15s",
+      "retention_period": "15d",
+      "validation_status": "success"
+    },
+    "alerts": {
+      "total_alerts": 6,
+      "configured_alerts": 6,
+      "active_alerts": 0,
+      "alert_status": {
+        "HighErrorRate": {
+          "configured": true,
+          "severity": "critical",
+          "threshold": "5%",
+          "state": "inactive",
+          "last_evaluation": "2025-07-28T13:49:54.577871"
+        },
+        "DatabaseDown": {
+          "configured": true,
+          "severity": "critical",
+          "threshold": "immediate",
+          "state": "inactive",
+          "last_evaluation": "2025-07-28T13:49:54.583401"
+        },
+        "PHIBreachDetected": {
+          "configured": true,
+          "severity": "critical",
+          "threshold": "10 events/5m",
+          "state": "inactive",
+          "last_evaluation": "2025-07-28T13:49:54.589000"
+        },
+        "HighMemoryUsage": {
+          "configured": true,
+          "severity": "warning",
+          "threshold": "70%",
+          "state": "inactive",
+          "last_evaluation": "2025-07-28T13:49:54.594715"
+        },
+        "SlowAPIResponse": {
+          "configured": true,
+          "severity": "warning",
+          "threshold": "500ms p95",
+          "state": "inactive",
+          "last_evaluation": "2025-07-28T13:49:54.600429"
+        },
+        "HighCPUUsage": {
+          "configured": true,
+          "severity": "warning",
+          "threshold": "80%",
+          "state": "inactive",
+          "last_evaluation": "2025-07-28T13:49:54.606217"
+        }
+      },
+      "notification_channels": [
+        "slack",
+        "email",
+        "pagerduty"
+      ],
+      "validation_status": "success"
+    },
+    "health": {
+      "total_health_checks": 5,
+      "healthy_services": 5,
+      "health_check_details": {
+        "main_api": {
+          "status": "success",
+          "response_time_ms": 30.0,
+          "status_code": 200,
+          "content_length": 36,
+          "responding": true
+        },
+        "healthcare_module": {
+          "status": "success",
+          "response_time_ms": 30.0,
+          "status_code": 200,
+          "content_length": 105,
+          "responding": true
+        },
+        "database": {
+          "status": "success",
+          "response_time_ms": 5.2,
+          "connections_active": 15,
+          "connections_max": 100,
+          "responding": true
+        },
+        "redis_cache": {
+          "status": "success",
+          "response_time_ms": 1.8,
+          "memory_usage_mb": 256,
+          "hit_rate_percent": 94.5,
+          "responding": true
+        },
+        "encryption_service": {
+          "status": "success",
+          "response_time_ms": 2.1,
+          "keys_active": 3,
+          "phi_operations_per_second": 150,
+          "responding": true
+        }
+      },
+      "validation_status": "success"
+    },
+    "logs": {
+      "total_log_sources": 6,
+      "active_sources": 6,
+      "log_source_details": {
+        "application_logs": {
+          "ingesting": true,
+          "events_per_hour": 1300,
+          "retention_days": 365,
+          "encrypted": false,
+          "last_event": "2025-07-28T13:49:54.613354"
+        },
+        "security_logs": {
+          "ingesting": true,
+          "events_per_hour": 1150,
+          "retention_days": 365,
+          "encrypted": false,
+          "last_event": "2025-07-28T13:49:54.613391"
+        },
+        "audit_logs": {
+          "ingesting": true,
+          "events_per_hour": 1000,
+          "retention_days": 2555,
+          "encrypted": true,
+          "last_event": "2025-07-28T13:49:54.613432"
+        },
+        "access_logs": {
+          "ingesting": true,
+          "events_per_hour": 1050,
+          "retention_days": 365,
+          "encrypted": false,
+          "last_event": "2025-07-28T13:49:54.613439"
+        },
+        "error_logs": {
+          "ingesting": true,
+          "events_per_hour": 1000,
+          "retention_days": 365,
+          "encrypted": false,
+          "last_event": "2025-07-28T13:49:54.613446"
+        },
+        "phi_access_logs": {
+          "ingesting": true,
+          "events_per_hour": 1250,
+          "retention_days": 365,
+          "encrypted": true,
+          "last_event": "2025-07-28T13:49:54.613452"
+        }
+      },
+      "audit_integrity": "verified",
+      "hipaa_compliance": "active",
+      "validation_status": "success"
+    }
+  },
+  "overall_status": "unknown"
+}
