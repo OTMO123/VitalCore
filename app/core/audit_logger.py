@@ -10,7 +10,7 @@ import hashlib
 import json
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List, Union
 from enum import Enum
 from dataclasses import dataclass, asdict
@@ -18,7 +18,7 @@ import structlog
 
 from sqlalchemy import select, and_, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.database_unified import get_db, AuditLog, DataClassification
 from app.core.security import security_manager
@@ -105,7 +105,7 @@ class AuditContext:
 class AuditEntry(BaseModel):
     """Immutable audit log entry."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now())
     event_type: AuditEventType
     severity: AuditSeverity
     message: str
@@ -121,12 +121,12 @@ class AuditEntry(BaseModel):
     contains_phi: bool = False
     data_classification: DataClassification = DataClassification.PUBLIC
     
-    model_config = {
-        "use_enum_values": True,
-        "json_encoders": {
+    model_config = ConfigDict(
+        use_enum_values=True,
+        json_encoders={
             datetime: lambda v: v.isoformat()
         }
-    }
+    )
 
 
 class ImmutableAuditLogger:
@@ -173,6 +173,7 @@ class ImmutableAuditLogger:
         async with self._lock:
             try:
                 # Get database session if not provided
+                external_session = db is not None
                 if db is None:
                     async for session in get_db():
                         db = session
@@ -200,10 +201,11 @@ class ImmutableAuditLogger:
                 entry_hash = hashlib.sha256(entry_json.encode()).hexdigest()
                 entry.checksum = entry_hash
                 
-                # Create database record
+                # Create database record with timezone-naive timestamp
+                timestamp_naive = entry.timestamp.replace(tzinfo=None) if entry.timestamp.tzinfo else entry.timestamp
                 audit_record = AuditLog(
                     id=entry.id,
-                    timestamp=entry.timestamp,
+                    timestamp=timestamp_naive,
                     event_type=entry.event_type.value if hasattr(entry.event_type, 'value') else entry.event_type,
                     action=entry.message,  # Map message to action field
                     outcome="success",  # Default to success
@@ -215,7 +217,15 @@ class ImmutableAuditLogger:
                 
                 # Save to database
                 db.add(audit_record)
-                await db.commit()
+                
+                # Handle commit/flush based on session ownership
+                if external_session:
+                    # Using external session (bundle mode) - just flush
+                    # The external session manager will handle the commit
+                    await db.flush()
+                else:
+                    # Using our own session - commit immediately
+                    await db.commit()
                 
                 # Update last hash for chain
                 self._last_hash = entry_hash

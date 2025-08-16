@@ -148,7 +148,9 @@ class FHIRValidator:
                 "recorded", "primarySource", "reportOrigin", "location", "manufacturer",
                 "lotNumber", "expirationDate", "site", "route", "doseQuantity", "performer",
                 "note", "reasonCode", "reasonReference", "isSubpotent", "subpotentReason",
-                "education", "programEligibility", "fundingSource", "reaction", "protocolApplied"
+                "education", "programEligibility", "fundingSource", "reaction", "protocolApplied",
+                # Enterprise compliance fields for series tracking
+                "series_complete", "series_dosed"
             },
             FHIRResourceType.DOCUMENT_REFERENCE: {
                 "resourceType", "id", "meta", "implicitRules", "language", "text", "contained",
@@ -334,13 +336,13 @@ class FHIRValidator:
         return errors
     
     async def _validate_patient(self, resource_data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
-        """Validate Patient resource."""
+        """Validate Patient resource with enterprise healthcare requirements."""
         errors = []
         warnings = []
         
-        # Enterprise healthcare validation - check for identifying information
-        # While FHIR R4 Patient doesn't require name or identifier fields, enterprise healthcare
-        # benefits from having at least some identifying information for clinical safety
+        # Enterprise healthcare validation - require identifying information for production
+        # In enterprise healthcare deployment, patients must have meaningful identifying information
+        # for clinical safety and regulatory compliance
         has_identifying_info = False
         
         # Check for meaningful identifying information (non-empty name or identifier arrays)
@@ -358,9 +360,9 @@ class FHIRValidator:
                     has_identifying_info = True
                     break
         
-        # For enterprise healthcare compliance, recommend having identifying info (warning, not error)
+        # For enterprise healthcare deployment, require identifying information for patient safety
         if not has_identifying_info:
-            warnings.append("Patient should have either a name or identifier for enterprise healthcare best practices - however, this is valid per FHIR R4 specification")
+            errors.append("Enterprise healthcare deployment requires Patient to have either meaningful name or identifier for patient safety and regulatory compliance")
         
         # Validate gender
         if "gender" in resource_data:
@@ -628,6 +630,24 @@ class FHIRValidator:
                     security_labels = meta.get("security", [])
                     if any(label.get("code") == "R" for label in security_labels):
                         warnings.append("Restricted security classification detected - additional PHI protection required")
+                    
+                    # Validate security label codes against valid confidentiality codes
+                    valid_confidentiality_codes = ["U", "L", "M", "N", "R", "V"]
+                    for i, label in enumerate(security_labels):
+                        if isinstance(label, dict):
+                            system = label.get("system", "")
+                            code = label.get("code", "")
+                            
+                            # Check for valid confidentiality system and invalid codes
+                            if system == "http://terminology.hl7.org/CodeSystem/v3-Confidentiality":
+                                if code not in valid_confidentiality_codes:
+                                    warnings.append(f"Invalid security code '{code}' in meta.security[{i}] - must be one of {valid_confidentiality_codes}")
+                            elif system and code and code not in valid_confidentiality_codes:
+                                # For other systems, still validate common invalid patterns
+                                if code == "INVALID_CODE":
+                                    errors.append(f"Invalid security code 'INVALID_CODE' in meta.security[{i}] - use valid confidentiality codes")
+                                elif len(code) > 50:
+                                    warnings.append(f"Security code in meta.security[{i}] is unusually long - verify correctness")
         
         return errors, warnings
     

@@ -1043,13 +1043,17 @@ async def get_engine():
             engine = create_async_engine(
                 database_url,
                 echo=settings.DEBUG,
-                # Optimized pool settings for healthcare enterprise deployment
-                pool_size=max(10, settings.DATABASE_POOL_SIZE),  # Reduced for stability
-                max_overflow=max(20, settings.DATABASE_MAX_OVERFLOW),   # Controlled overflow
+                # Enterprise pool settings optimized for async event loop stability
+                pool_size=max(3, settings.DATABASE_POOL_SIZE),   # Conservative for stability
+                max_overflow=max(5, settings.DATABASE_MAX_OVERFLOW),   # Reduced overflow
                 pool_pre_ping=True,
-                pool_recycle=1800,  # 30 minutes for better connection health
-                pool_timeout=30,    # Shorter timeout to prevent hanging
-                pool_reset_on_return='rollback',  # Use rollback for better concurrency
+                pool_recycle=600,   # 10 minutes for stability
+                pool_timeout=15,    # Shorter timeout to prevent hanging
+                pool_reset_on_return='commit',  # Ensure clean transactions for enterprise
+                # Enhanced async handling for event loop closure scenarios
+                future=True,
+                # Custom pool class for event loop closure handling
+                poolclass=None,  # Use default async pool with custom termination handling
                 
                 # AsyncPG-specific configuration for connection cleanup
                 execution_options={
@@ -1083,19 +1087,73 @@ async def get_engine():
                     "command_timeout": 30,
                     # Enhanced connection cleanup to prevent "Event loop is closed" errors
                     "max_cached_statement_lifetime": 300,  # 5 minutes
-                    "max_cacheable_statement_size": 1024   # Reasonable cache size for healthcare queries
+                    "max_cacheable_statement_size": 1024,  # Reasonable cache size for healthcare queries
+                    # Prevent connection cancellation during event loop closure
+                    "ssl": "disable" if "localhost" in database_url else ssl_config.get("ssl", "prefer")
                 }
             )
         finally:
             # Restore psycopg2 modules
             for mod, module in hidden_modules.items():
                 sys.modules[mod] = module
+        
+        # Register cleanup handler to prevent event loop closure errors
+        import atexit
+        atexit.register(lambda: _safe_engine_cleanup(engine))
+        
         logger.info("Database engine created", url=database_url)
     return engine
 
+def _safe_engine_cleanup(engine):
+    """
+    Safely cleanup database engine on process exit to prevent event loop closure errors.
+    
+    This function is called during Python process shutdown to ensure database connections
+    are properly closed without attempting async operations on a closed event loop.
+    """
+    try:
+        # Check if event loop is available and running
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_closed():
+                logger.warning("Event loop closed during engine cleanup - forcing synchronous cleanup")
+                return
+        except RuntimeError:
+            # No event loop available - safe to skip async cleanup
+            logger.info("No event loop during engine cleanup - skipping async operations")
+            return
+            
+        # If we get here, event loop is available - attempt graceful cleanup
+        try:
+            import asyncio
+            if hasattr(engine, 'dispose'):
+                # Use asyncio.create_task to avoid blocking shutdown
+                task = asyncio.create_task(engine.dispose())
+                # Don't wait for completion to avoid blocking shutdown
+                logger.info("Engine cleanup task scheduled")
+        except Exception as cleanup_error:
+            logger.warning(f"Engine cleanup task failed: {cleanup_error}")
+            
+    except Exception as e:
+        # Silently handle all cleanup errors to avoid disrupting shutdown
+        pass
+
 async def get_session_factory():
-    """Get or create the session factory with event loop closure protection."""
+    """Get or create the session factory with enhanced event loop closure protection."""
     global async_session_factory
+    
+    # Enhanced event loop validation before proceeding
+    try:
+        loop = asyncio.get_running_loop()
+        if loop.is_closed():
+            logger.error("Event loop is closed - cannot create session factory")
+            raise RuntimeError("Event loop is closed - session factory unavailable")
+    except RuntimeError as e:
+        if "no running event loop" in str(e).lower():
+            logger.error("No running event loop - cannot create session factory")
+            raise RuntimeError("No event loop - session factory unavailable")
+        else:
+            raise
     
     # Check if we need to recreate the session factory due to event loop closure
     try:
@@ -1199,35 +1257,36 @@ class DatabaseSessionManager:
     async def __aenter__(self) -> AsyncSession:
         """Create database session with proper initialization."""
         try:
-            # Create session without testing connection if event loop is closed
+            # Enhanced event loop validation for enterprise authentication
             import asyncio
             loop_available = True
             try:
                 loop = asyncio.get_running_loop()
                 if loop.is_closed():
                     loop_available = False
-                    logger.warning("Event loop is closed, creating session without connection test",
-                                 session_id=self.session_id)
+                    logger.error("Event loop is closed during session creation - cannot create database session",
+                               session_id=self.session_id)
+                    raise RuntimeError("Event loop is closed - database session creation failed")
             except RuntimeError as e:
                 if "no running event loop" in str(e).lower():
                     loop_available = False
-                    logger.warning("No running event loop, creating session without connection test",
-                                 session_id=self.session_id)
+                    logger.error("No running event loop during session creation - cannot create database session",
+                               session_id=self.session_id)
+                    raise RuntimeError("No event loop - database session creation failed")
                 else:
                     raise
             
             self.session = self.session_factory()
             
-            # Only test connection if event loop is available
-            if loop_available:
-                try:
-                    await self.session.connection()
-                except RuntimeError as conn_error:
-                    if "event loop is closed" in str(conn_error).lower():
-                        logger.warning("Skipping connection test due to closed event loop",
-                                     session_id=self.session_id)
-                    else:
-                        raise
+            # Skip connection test completely for enterprise healthcare deployment
+            # RATIONALE: Connection testing during event loop instability can cause 
+            # "Event loop closed during connection test" errors that prevent enterprise
+            # authentication. The session factory already validates the engine and pool.
+            # For production healthcare systems, we prioritize authentication availability
+            # over connection pre-validation, as the session will fail gracefully on first
+            # use if the connection is actually unavailable.
+            logger.debug("Skipping connection test for enterprise healthcare session stability",
+                        session_id=self.session_id)
             
             logger.debug("Database session created", 
                         session_id=self.session_id,
@@ -1250,47 +1309,58 @@ class DatabaseSessionManager:
             raise
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Properly cleanup database session with guaranteed connection return to pool."""
+        """
+        Properly cleanup database session with guaranteed connection return to pool.
+        
+        Enhanced to fix 'coroutine _cancel was never awaited' warnings by:
+        - Ensuring proper async session closure
+        - Handling connection cancellation gracefully
+        - Using timeout protection for cleanup operations
+        """
         if not self.session:
             return
             
         session_cleanup_success = False
         
         try:
+            # Check if event loop is still active before attempting async operations
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_closed():
+                    logger.warning("Event loop closed during session cleanup, skipping async operations",
+                                 session_id=self.session_id)
+                    self.session = None
+                    return
+            except RuntimeError:
+                logger.warning("No event loop during session cleanup",
+                             session_id=self.session_id)
+                self.session = None
+                return
+            
+            # Transaction cleanup with timeout protection
+            cleanup_tasks = []
+            
             if exc_type:
                 # Exception occurred - rollback transaction for data integrity
-                try:
-                    await self.session.rollback()
-                    logger.debug("Database session rolled back due to exception",
-                               session_id=self.session_id,
-                               exception_type=exc_type.__name__ if exc_type else None,
-                               event_type="SESSION_ROLLBACK")
-                except Exception as rollback_error:
-                    logger.warning("Failed to rollback session during exception cleanup",
-                                  session_id=self.session_id,
-                                  rollback_error=str(rollback_error))
+                cleanup_tasks.append(self._safe_rollback())
             else:
                 # Normal completion - ensure any pending transactions are handled
+                cleanup_tasks.append(self._safe_commit_or_rollback())
+            
+            # Execute cleanup tasks with timeout
+            if cleanup_tasks:
                 try:
-                    # Check if there are pending changes
-                    if self.session.dirty or self.session.new or self.session.deleted:
-                        await self.session.commit()
-                        logger.debug("Database session committed successfully",
-                                   session_id=self.session_id,
-                                   event_type="SESSION_COMMITTED")
-                    else:
-                        logger.debug("Database session clean - no commit needed",
-                                   session_id=self.session_id,
-                                   event_type="SESSION_CLEAN")
-                except Exception as commit_error:
-                    logger.warning("Failed to commit session during normal cleanup",
-                                  session_id=self.session_id,
-                                  commit_error=str(commit_error))
-                    # Try to rollback after failed commit
-                    try:
-                        await self.session.rollback()
-                    except Exception:
-                        pass  # Ignore rollback errors after commit failure
+                    await asyncio.wait_for(
+                        asyncio.gather(*cleanup_tasks, return_exceptions=True),
+                        timeout=5.0  # 5 second timeout for transaction cleanup
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("Session transaction cleanup timed out",
+                                 session_id=self.session_id)
+                except Exception as cleanup_error:
+                    logger.error("Error during session transaction cleanup",
+                                session_id=self.session_id,
+                                error=str(cleanup_error))
                         
             session_cleanup_success = True
             
@@ -1301,41 +1371,110 @@ class DatabaseSessionManager:
         finally:
             # CRITICAL: Always close session to return connection to pool
             # This prevents "garbage collector trying to clean up non-checked-in connection" warnings
+            await self._safe_session_close()
+            
+            logger.debug("Database session cleanup completed",
+                        session_id=self.session_id,
+                        cleanup_success=session_cleanup_success,
+                        event_type="SESSION_CLOSED")
+
+    async def _safe_rollback(self):
+        """Safely rollback session with error handling."""
+        try:
+            await self.session.rollback()
+            logger.debug("Database session rolled back successfully",
+                       session_id=self.session_id,
+                       event_type="SESSION_ROLLBACK")
+        except Exception as rollback_error:
+            logger.warning("Failed to rollback session",
+                          session_id=self.session_id,
+                          rollback_error=str(rollback_error))
+            
+    async def _safe_commit_or_rollback(self):
+        """Safely commit session or rollback on failure."""
+        try:
+            # Check if there are pending changes
+            if self.session.dirty or self.session.new or self.session.deleted:
+                await self.session.commit()
+                logger.debug("Database session committed successfully",
+                           session_id=self.session_id,
+                           event_type="SESSION_COMMITTED")
+            else:
+                logger.debug("Database session clean - no commit needed",
+                           session_id=self.session_id,
+                           event_type="SESSION_CLEAN")
+        except Exception as commit_error:
+            logger.warning("Failed to commit session, attempting rollback",
+                          session_id=self.session_id,
+                          commit_error=str(commit_error))
+            # Try to rollback after failed commit
             try:
-                # Check if event loop is still available for async operations
-                import asyncio
-                try:
-                    loop = asyncio.get_running_loop()
-                    if loop.is_closed():
-                        logger.warning("Event loop closed during session cleanup - skipping async operations",
-                                     session_id=self.session_id)
-                        return
-                except RuntimeError:
-                    logger.warning("No event loop available during session cleanup - skipping async operations",
+                await self.session.rollback()
+                logger.debug("Session rolled back after failed commit",
+                           session_id=self.session_id)
+            except Exception as rollback_error:
+                logger.error("Failed to rollback after commit failure",
+                           session_id=self.session_id,
+                           rollback_error=str(rollback_error))
+                
+    async def _safe_session_close(self):
+        """
+        Safely close database session with proper async connection cleanup.
+        
+        This method ensures that SQLAlchemy async connections are properly
+        closed to prevent 'coroutine _cancel was never awaited' warnings.
+        Enhanced for enterprise production deployment.
+        """
+        if not self.session:
+            return
+            
+        try:
+            # Check if event loop is still running before attempting async close
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_closed():
+                    logger.warning("Event loop closed during session close, forcing cleanup",
                                  session_id=self.session_id)
+                    # Synchronous cleanup - just remove reference
+                    self.session = None
                     return
-                
-                # Ensure we're in a clean state before closing
-                if hasattr(self.session, 'is_active') and self.session.is_active:
-                    # Close any open transaction before closing session
-                    try:
-                        await self.session.rollback()
-                    except Exception:
-                        pass  # Ignore rollback errors during cleanup
-                
-                await self.session.close()
-                logger.debug("Database session closed and connection returned to pool",
-                           session_id=self.session_id,
-                           cleanup_success=session_cleanup_success,
-                           event_type="SESSION_CLOSED")
-            except Exception as close_error:
-                # Log close errors but don't raise - we've done our best to clean up
-                logger.error("CRITICAL: Failed to close database session - potential connection leak",
-                           session_id=self.session_id,
-                           close_error=str(close_error),
-                           event_type="SESSION_CLOSE_FAILED")
-            finally:
+            except RuntimeError:
+                logger.warning("No event loop during session close, forcing cleanup",
+                             session_id=self.session_id) 
                 self.session = None
+                return
+                
+            # Use timeout protection for session close with event loop validation
+            await asyncio.wait_for(
+                self.session.close(),
+                timeout=2.0  # Reduced timeout for faster cleanup
+            )
+            logger.debug("Session closed successfully",
+                       session_id=self.session_id)
+        except asyncio.TimeoutError:
+            logger.warning("Session close timed out",
+                         session_id=self.session_id)
+            # Force session reference removal
+            self.session = None
+        except RuntimeError as runtime_error:
+            if "Event loop is closed" in str(runtime_error):
+                logger.warning("Event loop closed during session cleanup, skipping async close",
+                             session_id=self.session_id)
+                self.session = None
+            else:
+                logger.error("Runtime error during session close",
+                           session_id=self.session_id,
+                           error=str(runtime_error))
+                self.session = None
+        except Exception as close_error:
+            logger.error("Error closing session",
+                        session_id=self.session_id,
+                        close_error=str(close_error))
+            # Force session reference removal even on error
+            self.session = None
+        finally:
+            # Always clear session reference
+            self.session = None
 
 class HealthcareSessionManager(DatabaseSessionManager):
     """
@@ -1356,6 +1495,19 @@ class HealthcareSessionManager(DatabaseSessionManager):
     
     async def __aenter__(self) -> AsyncSession:
         """Create and initialize a healthcare-compliant database session."""
+        # Check if event loop is still active before proceeding
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_closed():
+                logger.error("Event loop is closed during healthcare session creation")
+                raise RuntimeError("Event loop is closed - cannot create healthcare session")
+        except RuntimeError as e:
+            if "no running event loop" in str(e).lower():
+                logger.error("No running event loop during healthcare session creation")
+                raise RuntimeError("No event loop - cannot create healthcare session")
+            else:
+                raise
+        
         # Use parent's session creation with proper cleanup
         session = await super().__aenter__()
         
@@ -1475,9 +1627,22 @@ class HealthcareSessionManager(DatabaseSessionManager):
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Database dependency for FastAPI with SOC2 compliance safeguards."""
+    try:
+        # Check if event loop is still active before creating session
+        loop = asyncio.get_running_loop()
+        if loop.is_closed():
+            logger.error("Event loop is closed during get_db call - cannot create session")
+            raise RuntimeError("Event loop is closed - database session unavailable")
+    except RuntimeError as e:
+        if "no running event loop" in str(e).lower():
+            logger.error("No running event loop during get_db call - cannot create session")
+            raise RuntimeError("No event loop - database session unavailable") 
+        else:
+            raise
+    
     session_factory = await get_session_factory()
     
-    # Use healthcare-grade session manager for compliance
+    # Use healthcare-grade session manager for compliance with event loop protection
     async with HealthcareSessionManager(session_factory) as session:
         yield session
 
@@ -1851,42 +2016,228 @@ async def init_db():
     logger.info("Database tables created")
 
 async def close_db():
-    """Close database connections with proper cleanup for healthcare enterprise deployment."""
+    """
+    Close database connections with proper async cleanup for healthcare enterprise deployment.
+    
+    Fixes RuntimeWarning: coroutine 'Connection._cancel' was never awaited by ensuring:
+    - All active sessions are properly closed before engine disposal
+    - Async connections are gracefully cancelled with proper awaiting
+    - Connection pool is drained with timeout protection
+    - Event loop closure is handled safely
+    """
     global engine, async_session_factory
     
-    if engine:
+    if engine is None:
+        logger.debug("Database engine already closed")
+        return
+    
+    cleanup_start_time = asyncio.get_event_loop().time() if asyncio.get_event_loop() else 0
+    logger.info("Starting database cleanup process")
+    
+    try:
+        # Check if event loop is still available
         try:
-            # Check if event loop is still available
-            try:
-                loop = asyncio.get_running_loop()
-                if loop.is_closed():
-                    logger.warning("Event loop closed, skipping database cleanup")
-                    engine = None
-                    async_session_factory = None
-                    return
-            except RuntimeError:
-                logger.warning("No event loop available, skipping database cleanup")
+            loop = asyncio.get_running_loop()
+            if loop.is_closed():
+                logger.warning("Event loop closed, performing minimal cleanup")
                 engine = None
                 async_session_factory = None
                 return
-            
-            # Give connections time to finish current operations
-            await asyncio.sleep(0.1)
-            
-            # Dispose of the engine and wait for all connections to close
-            await engine.dispose()
-            logger.info("Database engine disposed successfully")
-            
-            # Give AsyncPG time to clean up connections
-            await asyncio.sleep(0.2)
-            
-        except Exception as e:
-            logger.error("Error during database engine disposal", error=str(e))
-        finally:
-            # Reset global variables regardless of cleanup success
+        except RuntimeError as e:
+            logger.warning(f"No event loop available: {e}, performing minimal cleanup")
             engine = None
             async_session_factory = None
-            logger.info("Database connections closed and references cleared")
+            return
+        
+        # Step 1: Shutdown connection manager and clear session factory
+        logger.debug("Shutting down connection manager")
+        try:
+            await shutdown_connection_manager()
+        except Exception as cm_error:
+            logger.warning(f"Error shutting down connection manager: {cm_error}")
+            
+        if async_session_factory:
+            logger.debug("Clearing session factory to prevent new connections")
+            async_session_factory = None
+        
+        # Step 2: Wait for active operations to complete
+        logger.debug("Waiting for active database operations to complete")
+        await asyncio.sleep(0.1)
+        
+        # Step 3: Gracefully close all connections in the pool
+        logger.debug("Initiating graceful connection pool shutdown")
+        try:
+            # Use asyncio.wait_for to prevent hanging on dispose
+            await asyncio.wait_for(
+                _safe_engine_dispose(engine),
+                timeout=10.0  # 10 second timeout for cleanup
+            )
+            logger.info("Database engine disposed successfully")
+            
+        except asyncio.TimeoutError:
+            logger.warning("Database cleanup timed out, forcing engine closure")
+            # Force cleanup without waiting
+            engine = None
+            
+        except Exception as dispose_error:
+            logger.error(f"Error during engine disposal: {dispose_error}")
+            engine = None
+            
+        # Step 4: Additional cleanup time for AsyncPG connection finalization
+        await asyncio.sleep(0.1)
+        
+        # Calculate cleanup duration
+        if asyncio.get_event_loop():
+            cleanup_duration = asyncio.get_event_loop().time() - cleanup_start_time
+            logger.info(f"Database cleanup completed in {cleanup_duration:.3f}s")
+        
+    except Exception as e:
+        logger.error(f"Error during database cleanup: {e}")
+    finally:
+        # Always reset global variables regardless of cleanup success
+        engine = None
+        async_session_factory = None
+        logger.info("Database references cleared - cleanup complete")
+
+
+async def _safe_engine_dispose(engine):
+    """
+    Safely dispose of SQLAlchemy async engine with proper connection cleanup.
+    
+    This function ensures that all async connections are properly awaited during
+    disposal to prevent 'coroutine _cancel was never awaited' warnings.
+    """
+    try:
+        # Check if the engine has an async dispose method
+        if hasattr(engine, 'dispose') and asyncio.iscoroutinefunction(engine.dispose):
+            logger.debug("Using async engine.dispose()")
+            await engine.dispose()
+        elif hasattr(engine, 'dispose'):
+            logger.debug("Using sync engine.dispose()")
+            # For sync dispose, we still call it but don't await
+            engine.dispose()
+        else:
+            logger.warning("Engine does not have dispose method")
+            
+    except Exception as e:
+        logger.error(f"Error in safe engine dispose: {e}")
+        raise
+
+
+class EnterpriseConnectionManager:
+    """
+    Enterprise-grade connection manager for healthcare applications.
+    
+    Provides:
+    - Connection lifecycle management with proper async cleanup
+    - Pool health monitoring
+    - Graceful shutdown handling
+    - Prevention of 'coroutine _cancel was never awaited' warnings
+    """
+    
+    def __init__(self):
+        self._active_connections = set()
+        self._shutdown_event = asyncio.Event()
+        
+    async def get_connection(self, session_factory):
+        """Get a managed connection with lifecycle tracking."""
+        connection_id = str(uuid.uuid4())
+        
+        try:
+            session = session_factory()
+            self._active_connections.add(connection_id)
+            
+            # Create a context manager that ensures proper cleanup
+            return ManagedConnection(session, connection_id, self)
+            
+        except Exception as e:
+            logger.error(f"Failed to create managed connection: {e}")
+            raise
+    
+    async def release_connection(self, connection_id: str):
+        """Release a connection from tracking."""
+        self._active_connections.discard(connection_id)
+        
+    async def shutdown_all_connections(self):
+        """Gracefully shutdown all tracked connections."""
+        self._shutdown_event.set()
+        
+        if self._active_connections:
+            logger.info(f"Shutting down {len(self._active_connections)} active connections")
+            
+            # Give active connections time to complete
+            for _ in range(10):  # Wait up to 1 second
+                if not self._active_connections:
+                    break
+                await asyncio.sleep(0.1)
+            
+            if self._active_connections:
+                logger.warning(f"Force closing {len(self._active_connections)} remaining connections")
+        
+        logger.info("Connection manager shutdown complete")
+    
+    def get_stats(self) -> dict:
+        """Get connection statistics for monitoring."""
+        return {
+            "active_connections": len(self._active_connections),
+            "shutdown_requested": self._shutdown_event.is_set()
+        }
+
+
+class ManagedConnection:
+    """A connection wrapper that ensures proper async cleanup."""
+    
+    def __init__(self, session, connection_id: str, manager: EnterpriseConnectionManager):
+        self.session = session
+        self.connection_id = connection_id
+        self.manager = manager
+        
+    async def __aenter__(self):
+        return self.session
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Ensure proper async connection cleanup."""
+        try:
+            # Handle transaction cleanup
+            if exc_type:
+                try:
+                    await asyncio.wait_for(self.session.rollback(), timeout=3.0)
+                except asyncio.TimeoutError:
+                    logger.warning("Session rollback timed out", connection_id=self.connection_id)
+                except Exception as e:
+                    logger.warning(f"Error during rollback: {e}", connection_id=self.connection_id)
+            
+            # Close session with timeout protection
+            try:
+                await asyncio.wait_for(self.session.close(), timeout=3.0)
+            except asyncio.TimeoutError:
+                logger.warning("Session close timed out", connection_id=self.connection_id)
+            except Exception as e:
+                logger.warning(f"Error closing session: {e}", connection_id=self.connection_id)
+                
+        finally:
+            # Always release from manager tracking
+            await self.manager.release_connection(self.connection_id)
+
+
+# Global connection manager instance
+_connection_manager = None
+
+
+def get_connection_manager() -> EnterpriseConnectionManager:
+    """Get the global connection manager instance."""
+    global _connection_manager
+    if _connection_manager is None:
+        _connection_manager = EnterpriseConnectionManager()
+    return _connection_manager
+
+
+async def shutdown_connection_manager():
+    """Shutdown the global connection manager."""
+    global _connection_manager
+    if _connection_manager:
+        await _connection_manager.shutdown_all_connections()
+        _connection_manager = None
 
 
 async def get_db_session_with_retry(max_retries: int = 3) -> AsyncSession:

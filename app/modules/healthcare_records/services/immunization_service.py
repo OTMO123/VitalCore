@@ -6,7 +6,7 @@ PHI encryption, and comprehensive audit logging.
 """
 
 import uuid
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 
@@ -63,6 +63,19 @@ class ImmunizationService:
         self.event_bus = event_bus or get_event_bus()
         self.security_manager = security_manager or SecurityManager()
         self.logger = logger.bind(service="ImmunizationService")
+        self._auto_commit = True  # Bundle mode control
+    
+    def set_bundle_mode(self, bundle_mode: bool = True):
+        """Enable/disable bundle mode to control automatic commits."""
+        self._auto_commit = not bundle_mode
+    
+    async def _conditional_commit(self):
+        """Commit only if auto-commit is enabled (not in bundle mode)."""
+        if self._auto_commit:
+            await self.session.commit()
+        else:
+            # In bundle mode - just flush to generate IDs but don't commit
+            await self.session.flush()
     
     @trace_method("create_immunization")
     @metrics.track_operation("immunization.create")
@@ -104,17 +117,35 @@ class ImmunizationService:
             # Encrypt PHI fields
             encrypted_data = await self._encrypt_phi_fields(immunization_data)
             
+            # Handle patient_id conversion for the database model
+            if isinstance(patient_id, str):
+                patient_uuid = uuid.UUID(patient_id)
+            elif isinstance(patient_id, uuid.UUID):
+                patient_uuid = patient_id
+            else:
+                raise ValidationError(f"Invalid patient_id type: {type(patient_id)}")
+            
+            # Convert timezone-aware datetime to timezone-naive for database storage
+            occurrence_datetime = immunization_data['occurrence_datetime']
+            if hasattr(occurrence_datetime, 'tzinfo') and occurrence_datetime.tzinfo is not None:
+                # Convert to UTC and make naive for database storage
+                occurrence_datetime = occurrence_datetime.utctimetuple()
+                occurrence_datetime = datetime(*occurrence_datetime[:6])
+            
             # Create immunization record
             immunization = Immunization(
                 id=uuid.uuid4(),
-                patient_id=uuid.UUID(patient_id),
+                patient_id=patient_uuid,
                 fhir_id=f"Immunization/{uuid.uuid4()}",
                 status=immunization_data.get('status', ImmunizationStatus.COMPLETED.value),
                 vaccine_code=immunization_data['vaccine_code'],
                 vaccine_display=immunization_data.get('vaccine_display'),
                 vaccine_system=immunization_data.get('vaccine_system', 'http://hl7.org/fhir/sid/cvx'),
-                occurrence_datetime=immunization_data['occurrence_datetime'],
-                recorded_date=datetime.utcnow(),
+                series_complete=immunization_data.get('series_complete', False),  # Enterprise compliance field
+                series_dosed=immunization_data.get('series_dosed', 1),  # Default to single dose
+                occurrence_datetime=occurrence_datetime,
+                administration_date=occurrence_datetime,  # Enterprise compliance field
+                recorded_date=datetime.now(),  # Use timezone-naive for database storage
                 location_encrypted=encrypted_data.get('location_encrypted'),
                 primary_source=immunization_data.get('primary_source', True),
                 lot_number_encrypted=encrypted_data.get('lot_number_encrypted'),
@@ -151,8 +182,8 @@ class ImmunizationService:
                     "administered"
                 )
             
-            # Commit transaction
-            await self.session.commit()
+            # Conditional commit (respects bundle mode)
+            await self._conditional_commit()
             
             # Publish domain event using new event system
             await self.event_bus.publish_immunization_recorded(
@@ -424,14 +455,14 @@ class ImmunizationService:
                     setattr(immunization, field, value)
             
             # Update metadata
-            immunization.updated_at = datetime.utcnow()
+            immunization.updated_at = datetime.now()
             immunization.updated_by = uuid.UUID(context.user_id)
             
             # Update FHIR resource
             immunization.fhir_resource = self._build_fhir_resource(updates, immunization)
             
-            # Commit changes
-            await self.session.commit()
+            # Commit changes (respects bundle mode)
+            await self._conditional_commit()
             
             # Audit update
             await self._audit_immunization_access(
@@ -479,13 +510,13 @@ class ImmunizationService:
             immunization = await self.get_immunization(immunization_id, context)
             
             # Perform soft delete
-            immunization.soft_deleted_at = datetime.utcnow()
+            immunization.soft_deleted_at = datetime.now()
             immunization.deletion_reason = reason
             immunization.deleted_by = uuid.UUID(context.user_id)
             immunization.status = ImmunizationStatus.ENTERED_IN_ERROR.value
             
-            # Commit changes
-            await self.session.commit()
+            # Commit changes (respects bundle mode)
+            await self._conditional_commit()
             
             # Publish immunization deleted event
             await self.event_bus.publish_event(
@@ -540,7 +571,7 @@ class ImmunizationService:
             reaction = ImmunizationReaction(
                 id=uuid.uuid4(),
                 immunization_id=uuid.UUID(immunization_id),
-                reaction_date=reaction_data.get('reaction_date', datetime.utcnow()),
+                reaction_date=reaction_data.get('reaction_date', datetime.now()),
                 onset_period=reaction_data.get('onset_period'),
                 manifestation_code=reaction_data.get('manifestation_code'),
                 manifestation_display=reaction_data.get('manifestation_display'),
@@ -550,12 +581,12 @@ class ImmunizationService:
                 description_encrypted=encrypted_data.get('description_encrypted'),
                 treatment_encrypted=encrypted_data.get('treatment_encrypted'),
                 reported_by_encrypted=encrypted_data.get('reported_by_encrypted'),
-                report_date=datetime.utcnow(),
+                report_date=datetime.now(),
                 created_by=uuid.UUID(context.user_id)
             )
             
             self.session.add(reaction)
-            await self.session.commit()
+            await self._conditional_commit()
             
             # Log adverse reaction for monitoring
             await self.event_bus.publish_event(
@@ -618,11 +649,19 @@ class ImmunizationService:
             if field in updates:
                 raise ValidationError(f"Field '{field}' cannot be updated")
     
-    async def _verify_patient_exists(self, patient_id: str) -> None:
+    async def _verify_patient_exists(self, patient_id) -> None:
         """Verify that the patient exists."""
+        # Handle both string and UUID types
+        if isinstance(patient_id, str):
+            patient_uuid = uuid.UUID(patient_id)
+        elif isinstance(patient_id, uuid.UUID):
+            patient_uuid = patient_id
+        else:
+            raise ValidationError(f"Invalid patient_id type: {type(patient_id)}")
+            
         query = select(Patient).where(
             and_(
-                Patient.id == uuid.UUID(patient_id),
+                Patient.id == patient_uuid,
                 Patient.soft_deleted_at.is_(None)
             )
         )
@@ -632,11 +671,27 @@ class ImmunizationService:
     
     async def _check_duplicate_immunization(self, data: Dict[str, Any]) -> None:
         """Check for duplicate immunization records."""
+        # Handle both string and UUID types for patient_id
+        patient_id = data['patient_id']
+        if isinstance(patient_id, str):
+            patient_uuid = uuid.UUID(patient_id)
+        elif isinstance(patient_id, uuid.UUID):
+            patient_uuid = patient_id
+        else:
+            raise ValidationError(f"Invalid patient_id type: {type(patient_id)}")
+        
+        # Convert timezone-aware datetime to timezone-naive for database comparison
+        occurrence_datetime = data['occurrence_datetime']
+        if hasattr(occurrence_datetime, 'tzinfo') and occurrence_datetime.tzinfo is not None:
+            # Convert to UTC and make naive for database storage
+            occurrence_datetime = occurrence_datetime.utctimetuple()
+            occurrence_datetime = datetime(*occurrence_datetime[:6])
+            
         query = select(Immunization).where(
             and_(
-                Immunization.patient_id == uuid.UUID(data['patient_id']),
+                Immunization.patient_id == patient_uuid,
                 Immunization.vaccine_code == data['vaccine_code'],
-                Immunization.occurrence_datetime == data['occurrence_datetime'],
+                Immunization.occurrence_datetime == occurrence_datetime,
                 Immunization.soft_deleted_at.is_(None)
             )
         )
@@ -644,7 +699,7 @@ class ImmunizationService:
         if result.scalar_one_or_none():
             raise BusinessRuleViolation(
                 f"Duplicate immunization record for vaccine {data['vaccine_code']} "
-                f"on {data['occurrence_datetime']}"
+                f"on {occurrence_datetime}"
             )
     
     async def _encrypt_phi_fields(self, data: Dict[str, Any]) -> Dict[str, str]:
@@ -746,10 +801,7 @@ class ImmunizationService:
             fields_accessed=fields_accessed,
             purpose=context.purpose,
             context=audit_context,
-            db=self.session,
-            resource_type="Immunization",
-            resource_id=immunization_id,
-            access_type=access_type
+            db=self.session
         )
     
     def _build_fhir_resource(
@@ -763,7 +815,7 @@ class ImmunizationService:
             "id": str(existing.id) if existing else str(uuid.uuid4()),
             "meta": {
                 "versionId": "1",
-                "lastUpdated": datetime.utcnow().isoformat()
+                "lastUpdated": datetime.now().isoformat()
             },
             "status": data.get('status', ImmunizationStatus.COMPLETED.value),
             "vaccineCode": {
@@ -777,7 +829,7 @@ class ImmunizationService:
                 "reference": f"Patient/{data['patient_id']}"
             },
             "occurrenceDateTime": data['occurrence_datetime'].isoformat() if isinstance(data['occurrence_datetime'], datetime) else data['occurrence_datetime'],
-            "recorded": datetime.utcnow().isoformat(),
+            "recorded": datetime.now().isoformat(),
             "primarySource": data.get('primary_source', True)
         }
         

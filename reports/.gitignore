@@ -1,0 +1,15 @@
+# Reports directory gitignore
+
+# Ignore sensitive information in reports
+**/passwords.txt
+**/secrets.md
+**/private-*.md
+
+# Ignore temporary files
+**/*.tmp
+**/*.log
+**/*.temp
+
+# Keep structure but allow all reports to be committed
+# Reports should be shared with the team for knowledge
+!*.md

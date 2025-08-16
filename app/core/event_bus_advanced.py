@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict, deque
 import structlog
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update, delete, and_, or_
 from contextlib import asynccontextmanager
@@ -132,11 +132,11 @@ class BaseEvent(BaseModel):
         content = json.dumps(event_dict, sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()
     
-    model_config = {
-        "json_encoders": {
+    model_config = ConfigDict(
+        json_encoders={
             datetime: lambda v: v.isoformat()
         }
-    }
+    )
 
 # ============================================
 # CIRCUIT BREAKER FOR SUBSCRIBERS

@@ -346,14 +346,30 @@ class AuthService:
             return None
     
     async def get_user_by_username(self, username: str, db: AsyncSession) -> Optional[User]:
-        """Get user by username."""
+        """Get user by username with enterprise event loop protection."""
         import time
+        import asyncio
         start_time = time.time()
         
         try:
             logger.info("AUTH_SERVICE - Starting user lookup by username", 
                        username=username, 
                        lookup_method="username")
+            
+            # Check if event loop is available before database query
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_closed():
+                    logger.error("AUTH_SERVICE - Event loop is closed during user lookup", 
+                               username=username)
+                    return None
+            except RuntimeError as loop_error:
+                if "no running event loop" in str(loop_error).lower():
+                    logger.error("AUTH_SERVICE - No running event loop during user lookup", 
+                               username=username)
+                    return None
+                else:
+                    raise
             
             result = await db.execute(
                 select(User).where(User.username == username.lower())
@@ -378,6 +394,20 @@ class AuthService:
             
             return user
             
+        except RuntimeError as runtime_error:
+            error_time = time.time() - start_time
+            if "event loop is closed" in str(runtime_error).lower():
+                logger.error("AUTH_SERVICE - Event loop closed during database query", 
+                            username=username,
+                            lookup_time_ms=round(error_time * 1000, 2))
+                return None
+            else:
+                logger.error("AUTH_SERVICE - Runtime error during user lookup", 
+                            error=str(runtime_error), 
+                            error_type=type(runtime_error).__name__,
+                            username=username,
+                            lookup_time_ms=round(error_time * 1000, 2))
+                return None
         except Exception as e:
             error_time = time.time() - start_time
             logger.error("AUTH_SERVICE - Failed to get user by username", 
@@ -388,12 +418,34 @@ class AuthService:
             return None
     
     async def get_user_by_email(self, email: str, db: AsyncSession) -> Optional[User]:
-        """Get user by email."""
+        """Get user by email with enterprise event loop protection."""
+        import asyncio
         try:
+            # Check if event loop is available before database query
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_closed():
+                    logger.error("AUTH_SERVICE - Event loop is closed during email lookup", email=email)
+                    return None
+            except RuntimeError as loop_error:
+                if "no running event loop" in str(loop_error).lower():
+                    logger.error("AUTH_SERVICE - No running event loop during email lookup", email=email)
+                    return None
+                else:
+                    raise
+            
             result = await db.execute(
                 select(User).where(User.email == email.lower())
             )
             return result.scalar_one_or_none()
+        except RuntimeError as runtime_error:
+            if "event loop is closed" in str(runtime_error).lower():
+                logger.error("AUTH_SERVICE - Event loop closed during email query", email=email)
+                return None
+            else:
+                logger.error("AUTH_SERVICE - Runtime error during email lookup", 
+                           error=str(runtime_error), email=email)
+                return None
         except Exception as e:
             logger.error("Failed to get user by email", error=str(e), email=email)
             return None

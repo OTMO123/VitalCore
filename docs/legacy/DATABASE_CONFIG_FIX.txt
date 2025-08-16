@@ -1,0 +1,6 @@
+
+# Add this to your .env file to use the correct database:
+DATABASE_URL=postgresql://postgres:password@localhost:5432/iris_db
+
+# Or for the backend database:
+# DATABASE_URL=postgresql://test_user:test_password@localhost:5433/test_iris_db

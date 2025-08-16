@@ -74,8 +74,13 @@ class Immunization(Base):
     vaccine_display = Column(String(255), comment="Human readable vaccine name")
     vaccine_system = Column(String(255), default="http://hl7.org/fhir/sid/cvx", comment="Coding system")
     
+    # Series completion tracking (enterprise compliance field)
+    series_complete = Column(Boolean, nullable=False, default=False, comment="Whether vaccine series is complete")
+    series_dosed = Column(Integer, comment="Number of doses administered in series")
+    
     # Administration details
     occurrence_datetime = Column(DateTime, nullable=False, comment="When vaccination was performed")
+    administration_date = Column(DateTime, nullable=False, comment="Administration date (enterprise compliance field)")
     recorded_date = Column(DateTime, default=func.now(), comment="When record was created")
     
     # Location and provider (encrypted PHI)

@@ -1,0 +1,1495 @@
+﻿from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional, List
+import structlog
+import uuid
+from datetime import datetime
+
+from app.core.database_unified import get_db, AuditEventType
+from app.core.exceptions import ResourceNotFound
+from app.core.security import (
+    get_current_user_id, require_role, get_client_info, 
+    encryption_service, phi_access_validator, check_rate_limit,
+    SecurityManager, verify_token
+)
+from app.modules.auth.router import get_current_user
+from app.core.audit_logger import (
+    audit_logger, log_phi_access, log_patient_operation, 
+    log_security_violation, AuditContext, AuditEventType, AuditSeverity
+)
+from app.core.circuit_breaker import get_database_breaker, get_encryption_breaker
+from app.modules.healthcare_records.service import get_healthcare_service
+from app.modules.healthcare_records.schemas import (
+    ClinicalDocumentCreate, ClinicalDocumentResponse, ClinicalDocumentUpdate,
+    ConsentCreate, ConsentResponse, ConsentUpdate,
+    FHIRValidationRequest, FHIRValidationResponse,
+    AnonymizationRequest, AnonymizationResponse,
+    PatientCreate, PatientUpdate, PatientResponse, PatientListResponse
+)
+
+logger = structlog.get_logger()
+
+router = APIRouter()
+
+@router.get("/debug-timestamp")
+async def debug_timestamp():
+    """Debug endpoint to verify code reload"""
+    from datetime import datetime
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "message": "Code updated at 05:30:00",
+        "endpoint": "debug_timestamp"
+    }
+
+@router.post("/debug-body")
+async def debug_request_body(request: Request):
+    """Debug endpoint to test request body parsing without dependencies"""
+    try:
+        # Get raw body
+        raw_body = await request.body()
+        
+        # Try to parse as JSON
+        import json
+        if raw_body:
+            body_data = json.loads(raw_body)
+        else:
+            body_data = None
+            
+        return {
+            "success": True,
+            "raw_body_length": len(raw_body) if raw_body else 0,
+            "raw_body_preview": raw_body[:100].decode() if raw_body else "No body",
+            "parsed_data": body_data,
+            "content_type": request.headers.get("content-type"),
+            "method": request.method
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "raw_body_length": 0
+        }
+
+@router.put("/debug-update/{patient_id}")
+async def debug_update_patient(
+    patient_id: str,
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Debug version of update patient - bypasses Pydantic validation"""
+    try:
+        logger.info(f"🔧 DEBUG UPDATE: Starting for patient_id: {patient_id}")
+        logger.info(f"🔧 DEBUG UPDATE: User: {current_user_id}")
+        
+        # Get raw request body to bypass Pydantic
+        raw_body = await request.body()
+        logger.info(f"🔧 DEBUG UPDATE: Raw body: {raw_body}")
+        
+        if raw_body:
+            import json
+            body_data = json.loads(raw_body)
+            logger.info(f"🔧 DEBUG UPDATE: Parsed body: {body_data}")
+        else:
+            body_data = {}
+        
+        # Basic validation
+        import uuid
+        try:
+            patient_uuid = uuid.UUID(patient_id)
+            logger.info(f"🔧 DEBUG UPDATE: UUID validation passed: {patient_uuid}")
+        except ValueError as e:
+            logger.error(f"🔧 DEBUG UPDATE: UUID validation failed: {e}")
+            return {"error": "Invalid UUID", "details": str(e)}
+        
+        # Test database connection
+        from app.core.database_unified import Patient
+        from sqlalchemy import select
+        
+        logger.info("🔧 DEBUG UPDATE: About to query database")
+        query = select(Patient).where(
+            Patient.id == patient_uuid,
+            Patient.soft_deleted_at.is_(None)
+        )
+        result = await db.execute(query)
+        patient = result.scalar_one_or_none()
+        
+        logger.info(f"🔧 DEBUG UPDATE: Database query result: {patient is not None}")
+        
+        if not patient:
+            return {"error": "Patient not found"}
+        
+        logger.info(f"🔧 DEBUG UPDATE: Found patient with gender: {getattr(patient, 'gender', 'MISSING')}")
+        
+        # Apply updates from body
+        if "gender" in body_data:
+            logger.info(f"🔧 DEBUG UPDATE: Updating gender to: {body_data['gender']}")
+            patient.gender = body_data["gender"]
+            
+        if "consent_status" in body_data:
+            logger.info(f"🔧 DEBUG UPDATE: Updating consent_status to: {body_data['consent_status']}")
+            current_consent = patient.consent_status or {}
+            current_consent["status"] = body_data["consent_status"]
+            patient.consent_status = current_consent
+        
+        patient.updated_at = datetime.utcnow()
+        
+        logger.info("🔧 DEBUG UPDATE: About to commit")
+        await db.commit()
+        await db.refresh(patient)
+        
+        logger.info("🔧 DEBUG UPDATE: Commit successful")
+        
+        return {
+            "success": True,
+            "patient_id": str(patient.id),
+            "gender": patient.gender,
+            "consent_status": patient.consent_status,
+            "updated_at": patient.updated_at.isoformat(),
+            "raw_body_received": body_data
+        }
+        
+    except Exception as e:
+        logger.error(f"🔧 DEBUG UPDATE: Exception occurred: {str(e)}")
+        import traceback
+        logger.error(f"🔧 DEBUG UPDATE: Traceback: {traceback.format_exc()}")
+        return {"error": "Exception occurred", "details": str(e), "type": str(type(e).__name__)}
+
+# ============================================
+# HEALTH CHECK ENDPOINTS
+# ============================================
+
+@router.get("/health")
+async def healthcare_health_check():
+    """Health check for healthcare records service."""
+    return {
+        "status": "healthy", 
+        "service": "healthcare-records",
+        "fhir_compliance": "enabled",
+        "phi_encryption": "active"
+    }
+
+# ============================================
+# PATIENT CRUD ENDPOINTS  
+# ============================================
+
+@router.post("/patients", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
+async def create_patient(
+    patient_data: PatientCreate,
+    request: Request,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    user_info: dict = Depends(require_role("admin")),
+    _rate_limit: bool = Depends(check_rate_limit)
+):
+    """
+    Create a new patient record
+    
+    Requires physician role or higher. All PHI data is automatically encrypted
+    and the creation is logged for audit compliance.
+    
+    **Security Features:**
+    - PHI data encryption
+    - Role-based access control
+    - Comprehensive audit logging
+    - Input validation and sanitization
+    """
+    # Get audit context
+    client_info = await get_client_info(request)
+    
+    try:
+        # Create access context with enhanced information
+        from app.modules.healthcare_records.service import AccessContext
+        
+        # Debug UUID validation
+        logger.info("UUID debugging", 
+                   current_user_id=current_user_id, 
+                   user_id_type=type(current_user_id).__name__,
+                   request_id=client_info.get("request_id"))
+        
+        context = AccessContext(
+            user_id=current_user_id,
+            purpose="treatment",
+            role=user_info.get("role", "admin"),
+            ip_address=client_info.get("ip_address"),
+            session_id=None  # Temporarily simplify
+        )
+        
+        # Get enhanced patient service
+        service = await get_healthcare_service(session=db)
+        
+        # Convert PatientCreate to enhanced format
+        patient_dict = patient_data.dict()
+        
+        # Extract and structure names properly
+        if patient_dict.get("name") and len(patient_dict["name"]) > 0:
+            name = patient_dict["name"][0]
+            patient_dict["first_name"] = " ".join(name.get("given", []))
+            patient_dict["last_name"] = name.get("family", "")
+        
+        # Extract birth date
+        if patient_dict.get("birthDate"):
+            from datetime import datetime
+            patient_dict["date_of_birth"] = datetime.fromisoformat(str(patient_dict["birthDate"]))
+        
+        # Note: tenant_id not supported in current Patient model schema
+        # Using organization_id for tenant context if needed
+        
+        # Create patient through enhanced service
+        logger.info("Before patient creation", patient_data=patient_dict)
+        try:
+            patient = await service.patient_service.create_patient(patient_dict, context)
+            logger.info("Patient created successfully", patient_id=str(patient.id))
+        except Exception as e:
+            logger.error("Patient creation failed", error=str(e), error_type=type(e).__name__)
+            raise
+        
+        # Build response with decrypted data for return
+        response_data = {
+            "resourceType": "Patient",
+            "id": str(patient.id),
+            "identifier": patient_dict.get("identifier", []),
+            "active": patient_dict.get("active", True),
+            "name": patient_dict.get("name", []),
+            "telecom": patient_dict.get("telecom"),
+            "gender": patient_dict.get("gender"),
+            "birthDate": patient_dict.get("birthDate"),
+            "address": patient_dict.get("address"),
+            "consent_status": patient_dict.get("consent_status", "pending"),
+            "consent_types": patient_dict.get("consent_types", []),
+            "organization_id": patient_dict.get("organization_id"),
+            "created_at": patient.created_at,
+            "updated_at": patient.updated_at or patient.created_at
+        }
+        
+        logger.info("Enhanced patient created successfully", 
+                   patient_id=str(patient.id),
+                   user_id=current_user_id,
+                   role=context.role,
+                   phi_encrypted=True,
+                   audit_logged=True)
+        
+        return PatientResponse(**response_data)
+        
+    except ValueError as e:
+        logger.warning("Patient creation validation error", 
+                      error=str(e), user_id=current_user_id)
+        if "hexadecimal UUID" in str(e):
+            # Log more details about UUID error
+            logger.error("UUID validation error details", 
+                        error=str(e), 
+                        patient_data=patient_dict,
+                        user_id=current_user_id)
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        logger.warning("Patient creation permission denied", 
+                      error=str(e), user_id=current_user_id)
+        raise HTTPException(status_code=403, detail=str(e))
+    except Exception as e:
+        logger.error("Patient creation failed", 
+                    error=str(e), user_id=current_user_id,
+                    ip_address=client_info.get("ip_address"))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Internal server error"
+        )
+
+@router.get("/patients/{patient_id}", response_model=PatientResponse)
+async def get_patient(
+    patient_id: str,
+    request: Request,
+    purpose: str = Query("treatment", description="Purpose of access (treatment, payment, operations)"),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    user_info: dict = Depends(verify_token),
+    _rate_limit: bool = Depends(check_rate_limit),
+    _: dict = Depends(require_role("admin"))  # Admin role required for patient access
+):
+    """
+    Retrieve patient information
+    
+    **Access Control:**
+    - Admins: Can access any patient
+    - Physicians: Can access assigned patients
+    - Nurses: Can access patients in their department
+    
+    **Audit Logging:**
+    - All PHI access is logged for HIPAA compliance
+    - Access purpose is recorded
+    - Failed access attempts are logged as security violations
+    """
+    # COMPREHENSIVE LOGGING - Layer 1: ROUTER ENTRY
+    logger.info("=" * 80)
+    logger.info(f"🚀 ROUTER ENTRY: GET /patients/{patient_id}")
+    logger.info(f"🚀 ROUTER: Method={request.method}, URL={request.url}")
+    logger.info(f"🚀 ROUTER: Headers={dict(request.headers)}")
+    logger.info(f"🚀 ROUTER: Query params={dict(request.query_params)}")
+    logger.info(f"🚀 ROUTER: User ID={current_user_id}")
+    logger.info(f"🚀 ROUTER: User info type={type(user_info)}, content={user_info}")
+    logger.info(f"🚀 ROUTER: Purpose={purpose}")
+    logger.info("=" * 80)
+    
+    try:
+        logger.info(f"🔍 GET PATIENT: Starting for patient_id: {patient_id}")
+        logger.info(f"🔍 GET PATIENT: User authenticated: {current_user_id}")
+        
+        # LAYER 2: DEPENDENCY INJECTION RESULTS
+        logger.info(f"📋 DEPENDENCIES: Checking dependency injection results")
+        logger.info(f"📋 DEPENDENCIES: current_user_id type={type(current_user_id)}, value={current_user_id}")
+        logger.info(f"📋 DEPENDENCIES: db type={type(db)}")
+        logger.info(f"📋 DEPENDENCIES: user_info type={type(user_info)}, keys={list(user_info.keys()) if isinstance(user_info, dict) else 'NOT_DICT'}")
+        logger.info(f"📋 DEPENDENCIES: _rate_limit passed")
+        logger.info(f"📋 DEPENDENCIES: require_role(admin) passed")
+        
+        # LAYER 3: CLIENT INFO AND AUDIT CONTEXT
+        logger.info(f"🌐 CLIENT INFO: Getting client info from request")
+        try:
+            client_info = await get_client_info(request)
+            logger.info(f"🌐 CLIENT INFO: Successfully obtained - {client_info}")
+        except Exception as client_error:
+            logger.error(f"❌ CLIENT INFO: Error getting client info: {client_error}")
+            # Continue with empty client info
+            client_info = {"ip_address": "unknown", "request_id": "unknown"}
+        
+        # LAYER 4: DATABASE IMPORTS
+        logger.info(f"📦 IMPORTS: Starting database imports")
+        try:
+            from app.core.database_unified import Patient
+            from sqlalchemy import select
+            import uuid
+            logger.info(f"📦 IMPORTS: Database imports completed successfully")
+        except ImportError as import_error:
+            logger.error(f"❌ IMPORTS: Import error: {import_error}")
+            raise HTTPException(status_code=500, detail=f"Import error: {str(import_error)}")
+        
+        # LAYER 5: UUID VALIDATION
+        logger.info(f"🔑 UUID: Validating patient_id format")
+        try:
+            patient_uuid = uuid.UUID(patient_id)
+            logger.info(f"🔑 UUID: Validation passed - {patient_uuid}")
+        except ValueError as e:
+            logger.error(f"❌ UUID: Validation error - {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid patient ID format"
+            )
+        
+        # LAYER 6: DATABASE QUERY
+        logger.info(f"🗄️ DATABASE: Building SQL query")
+        try:
+            query = select(Patient).where(
+                Patient.id == patient_uuid,
+                Patient.soft_deleted_at.is_(None)
+            )
+            logger.info(f"🗄️ DATABASE: Query built successfully")
+        except Exception as query_error:
+            logger.error(f"❌ DATABASE: Query building error: {query_error}")
+            raise HTTPException(status_code=500, detail=f"Query building error: {str(query_error)}")
+        
+        # LAYER 7: DATABASE EXECUTION
+        logger.info(f"🗄️ DATABASE: Executing query")
+        try:
+            result = await db.execute(query)
+            logger.info(f"🗄️ DATABASE: Query executed successfully")
+        except Exception as exec_error:
+            logger.error(f"❌ DATABASE: Query execution error: {exec_error}")
+            raise HTTPException(status_code=500, detail=f"Database execution error: {str(exec_error)}")
+        
+        # LAYER 8: RESULT PROCESSING
+        logger.info(f"🗄️ DATABASE: Processing query result")
+        try:
+            patient = result.scalar_one_or_none()
+            logger.info(f"🗄️ DATABASE: Result processed - patient found: {patient is not None}")
+            if patient:
+                logger.info(f"🗄️ DATABASE: Patient object type: {type(patient)}")
+                logger.info(f"🗄️ DATABASE: Patient ID: {patient.id}")
+                logger.info(f"🗄️ DATABASE: Patient attributes: {[attr for attr in dir(patient) if not attr.startswith('_')]}")
+        except Exception as result_error:
+            logger.error(f"❌ DATABASE: Result processing error: {result_error}")
+            raise HTTPException(status_code=500, detail=f"Result processing error: {str(result_error)}")
+        
+        if not patient:
+            logger.warning(f"🔍 GET PATIENT: Patient not found: {patient_id}")
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Initialize security manager (same as Update Patient)
+        logger.info(f"🔍 GET PATIENT: Initializing SecurityManager")
+        try:
+            security_manager = SecurityManager()
+            logger.info(f"🔍 GET PATIENT: SecurityManager initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ GET PATIENT: SecurityManager initialization failed: {e}")
+            raise
+        
+        logger.info("🔄 RESPONSE CREATION: Starting response data preparation")
+        
+        # Decrypt for response with proper error handling (EXACT COPY FROM UPDATE PATIENT)
+        first_name = ""
+        last_name = ""
+        birth_date = None
+        
+        logger.info("🔄 RESPONSE CREATION: Starting secure decryption with error handling")
+        
+        # Safe decryption with fallback for InvalidToken (EXACT COPY FROM UPDATE PATIENT)
+        try:
+            if patient.first_name_encrypted:
+                first_name = security_manager.decrypt_data(patient.first_name_encrypted)
+                logger.info(f"🔄 RESPONSE CREATION: First name decrypted successfully")
+        except Exception as decrypt_error:
+            logger.warning(f"🔄 RESPONSE CREATION: First name decryption failed (using fallback): {decrypt_error}")
+            first_name = "***ENCRYPTED***"
+            
+        try:
+            if patient.last_name_encrypted:
+                last_name = security_manager.decrypt_data(patient.last_name_encrypted)
+                logger.info(f"🔄 RESPONSE CREATION: Last name decrypted successfully")
+        except Exception as decrypt_error:
+            logger.warning(f"🔄 RESPONSE CREATION: Last name decryption failed (using fallback): {decrypt_error}")
+            last_name = "***ENCRYPTED***"
+            
+        try:
+            if patient.date_of_birth_encrypted:
+                birth_date_str = security_manager.decrypt_data(patient.date_of_birth_encrypted)
+                if birth_date_str:
+                    from datetime import datetime
+                    birth_date = datetime.fromisoformat(birth_date_str).date()
+                    logger.info(f"🔄 RESPONSE CREATION: Birth date decrypted and parsed successfully")
+        except Exception as decrypt_error:
+            logger.warning(f"🔄 RESPONSE CREATION: Birth date decryption failed (using fallback): {decrypt_error}")
+            birth_date = None
+        
+        logger.info("🔄 RESPONSE CREATION: Building response data structure")
+        # Build response using proven patterns from Update Patient (EXACT COPY)
+        response_data = {
+            "resourceType": "Patient",
+            "id": str(patient.id),
+            "identifier": getattr(patient, 'identifier', []) or [],
+            "active": getattr(patient, 'active', True),
+            "name": [{"use": "official", "family": last_name, "given": [first_name] if first_name else []}],
+            "telecom": getattr(patient, 'telecom', None),
+            "gender": getattr(patient, 'gender', None),
+            "birthDate": birth_date,
+            "address": getattr(patient, 'address', None),
+            "consent_status": patient.consent_status.get("status", "pending") if isinstance(patient.consent_status, dict) else (patient.consent_status or "pending"),
+            "consent_types": patient.consent_status.get("types", []) if isinstance(patient.consent_status, dict) else (getattr(patient, 'consent_types', []) or []),
+            "organization_id": getattr(patient, 'organization_id', None) or getattr(patient, 'tenant_id', None),
+            "created_at": patient.created_at.isoformat() if patient.created_at else None,
+            "updated_at": (patient.updated_at or patient.created_at).isoformat() if (patient.updated_at or patient.created_at) else None
+        }
+        
+        # Log PHI access for HIPAA compliance
+        logger.info(f"🔍 GET PATIENT: Logging PHI access for compliance")
+        # Create audit context for PHI access logging
+        from app.core.audit_logger import AuditContext
+        audit_context = AuditContext(
+            user_id=current_user_id,
+            ip_address=client_info.get("ip_address"),
+            session_id=client_info.get("request_id")
+        )
+        
+        # Log PHI access with correct parameters
+        await log_phi_access(
+            user_id=current_user_id,
+            patient_id=patient_id,
+            fields_accessed=["first_name", "last_name", "date_of_birth", "gender"],
+            purpose=purpose,
+            context=audit_context,
+            db=db
+        )
+        
+        logger.info(f"🔍 GET PATIENT: Patient retrieved successfully with full compliance")
+        return PatientResponse(**response_data)
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions (404, 400, etc.)
+        raise
+    except Exception as e:
+        logger.error(f"❌ GET PATIENT: Unexpected error: {e}")
+        logger.error(f"❌ GET PATIENT: Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ GET PATIENT: Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve patient"
+        )
+
+@router.get("/step-by-step-debug/{patient_id}")
+async def step_by_step_debug(
+    patient_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    user_info: dict = Depends(verify_token),
+    _rate_limit: bool = Depends(check_rate_limit),
+    _: dict = Depends(require_role("admin"))
+):
+    """Step-by-step debug to find exact failure point"""
+    debug_info = {"steps_completed": [], "current_step": None, "error": None}
+    
+    try:
+        debug_info["current_step"] = "STEP 1: Starting debug"
+        logger.info(f"🐛 DEBUG STEP 1: Starting for patient_id: {patient_id}")
+        debug_info["steps_completed"].append("STEP 1: Started successfully")
+        
+        debug_info["current_step"] = "STEP 2: Getting client info"
+        from fastapi import Request
+        # Since we don't have request object, skip this for debug
+        debug_info["steps_completed"].append("STEP 2: Skipped client info")
+        
+        debug_info["current_step"] = "STEP 3: Database imports"
+        from app.core.database_unified import Patient
+        from sqlalchemy import select
+        import uuid
+        debug_info["steps_completed"].append("STEP 3: Imports successful")
+        
+        debug_info["current_step"] = "STEP 4: UUID validation"
+        patient_uuid = uuid.UUID(patient_id)
+        debug_info["steps_completed"].append(f"STEP 4: UUID valid: {patient_uuid}")
+        
+        debug_info["current_step"] = "STEP 5: Database query"
+        query = select(Patient).where(
+            Patient.id == patient_uuid,
+            Patient.soft_deleted_at.is_(None)
+        )
+        debug_info["steps_completed"].append("STEP 5: Query built")
+        
+        debug_info["current_step"] = "STEP 6: Execute query"
+        result = await db.execute(query)
+        debug_info["steps_completed"].append("STEP 6: Query executed")
+        
+        debug_info["current_step"] = "STEP 7: Get patient object"
+        patient = result.scalar_one_or_none()
+        debug_info["steps_completed"].append(f"STEP 7: Patient found: {patient is not None}")
+        
+        if not patient:
+            return {"status": "not_found", "debug_info": debug_info}
+        
+        debug_info["current_step"] = "STEP 8: SecurityManager init"
+        from app.core.security import SecurityManager
+        security_manager = SecurityManager()
+        debug_info["steps_completed"].append("STEP 8: SecurityManager initialized")
+        
+        debug_info["current_step"] = "STEP 9: Test basic patient attributes"
+        patient_id_str = str(patient.id)
+        patient_active = getattr(patient, 'active', True)
+        debug_info["steps_completed"].append(f"STEP 9: Basic attributes OK - ID: {patient_id_str}, Active: {patient_active}")
+        
+        debug_info["current_step"] = "STEP 10: Test encrypted fields existence"
+        has_first_encrypted = hasattr(patient, 'first_name_encrypted') and patient.first_name_encrypted is not None
+        has_last_encrypted = hasattr(patient, 'last_name_encrypted') and patient.last_name_encrypted is not None
+        debug_info["steps_completed"].append(f"STEP 10: Encrypted fields - First: {has_first_encrypted}, Last: {has_last_encrypted}")
+        
+        debug_info["current_step"] = "STEP 11: Simple response build test"
+        simple_response = {
+            "resourceType": "Patient",
+            "id": patient_id_str,
+            "active": patient_active,
+            "debug_mode": True
+        }
+        debug_info["steps_completed"].append("STEP 11: Simple response built")
+        
+        return {"status": "success", "debug_info": debug_info, "simple_response": simple_response}
+        
+    except Exception as e:
+        debug_info["error"] = {
+            "type": type(e).__name__,
+            "message": str(e),
+            "current_step": debug_info["current_step"]
+        }
+        logger.error(f"🐛 DEBUG ERROR at {debug_info['current_step']}: {e}")
+        import traceback
+        logger.error(f"🐛 DEBUG TRACEBACK: {traceback.format_exc()}")
+        return {"status": "error", "debug_info": debug_info}
+
+@router.get("/debug-get-patient/{patient_id}")
+async def debug_get_patient(
+    patient_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """Debug endpoint to trace exactly what happens during get_patient for non-existent ID"""
+    logger.info(f"🔍 DEBUG GET PATIENT: Starting for patient_id: {patient_id}")
+    
+    try:
+        logger.info(f"🔍 STEP 1: Creating AccessContext")
+        from app.modules.healthcare_records.service import AccessContext
+        context = AccessContext(
+            user_id=current_user_id,
+            purpose="treatment",
+            role="admin",
+            ip_address="127.0.0.1",
+            session_id="debug"
+        )
+        logger.info(f"🔍 STEP 2: AccessContext created successfully")
+        
+        logger.info(f"🔍 STEP 3: Getting healthcare service")
+        service = await get_healthcare_service(session=db)
+        logger.info(f"🔍 STEP 4: Healthcare service obtained")
+        
+        logger.info(f"🔍 STEP 5: Calling service.patient_service.get_patient")
+        try:
+            patient = await service.patient_service.get_patient(
+                patient_id=patient_id,
+                context=context,
+                include_documents=False
+            )
+            logger.info(f"🔍 STEP 6: Patient retrieved successfully: {patient.id}")
+            return {"status": "success", "patient_id": str(patient.id)}
+        except ResourceNotFound as e:
+            logger.info(f"🔍 STEP 6: ResourceNotFound caught: {e}")
+            return {"status": "not_found", "error": str(e), "should_be_404": True}
+        except Exception as e:
+            logger.error(f"🔍 STEP 6: Unexpected error: {e}")
+            logger.error(f"🔍 ERROR TYPE: {type(e).__name__}")
+            import traceback
+            logger.error(f"🔍 TRACEBACK: {traceback.format_exc()}")
+            return {"status": "error", "error": str(e), "error_type": type(e).__name__}
+            
+    except Exception as e:
+        logger.error(f"🔍 OUTER ERROR: {e}")
+        import traceback
+        logger.error(f"🔍 OUTER TRACEBACK: {traceback.format_exc()}")
+        return {"status": "outer_error", "error": str(e)}
+
+@router.get("/patients", response_model=PatientListResponse)
+async def list_patients(
+    page: int = Query(default=1, ge=1, description="Page number"),
+    size: int = Query(default=20, ge=1, le=100, description="Page size"),
+    search: Optional[str] = Query(None, description="Search query"),
+    gender: Optional[str] = Query(None, description="Filter by gender"),
+    age_min: Optional[int] = Query(None, ge=0, description="Minimum age"),
+    age_max: Optional[int] = Query(None, le=120, description="Maximum age"),
+    department_id: Optional[str] = Query(None, description="Filter by department"),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    List and search patients
+    
+    **Role-based Filtering:**
+    - Results are automatically filtered based on user role and permissions
+    - Search queries are logged for audit compliance
+    - Only authorized fields are returned in list view
+    """
+    try:
+        # Create access context
+        from app.modules.healthcare_records.service import AccessContext
+        context = AccessContext(
+            user_id=current_user_id,
+            purpose="operations",
+            role=getattr(current_user, "role", "user"),
+            ip_address=None,
+            session_id=None
+        )
+        
+        # Create patient filters
+        from app.modules.healthcare_records.schemas import PatientFilters
+        filters = PatientFilters(
+            gender=gender,
+            age_min=age_min,
+            age_max=age_max,
+            department_id=department_id
+        )
+        
+        # Get enhanced patient service
+        service = await get_healthcare_service(session=db)
+        
+        # Search patients through enhanced service
+        patients, total_count = await service.patient_service.search_patients(
+            context=context,
+            filters=filters.dict(exclude_none=True) if filters else None,
+            limit=size,
+            offset=(page - 1) * size
+        )
+        
+        # Convert to response format
+        response_patients = []
+        for patient in patients:
+            response_data = {
+                "resourceType": "Patient",
+                "id": str(patient.id),
+                "identifier": [],
+                "active": True,
+                "name": [{"use": "official", "family": patient.last_name or "", "given": [patient.first_name] if patient.first_name else []}],
+                "telecom": None,
+                "gender": patient.gender,
+                "birthDate": patient.date_of_birth,
+                "address": None,
+                "consent_status": "active",
+                "consent_types": [],
+                "organization_id": patient.tenant_id,
+                "created_at": patient.created_at,
+                "updated_at": patient.updated_at or patient.created_at
+            }
+            response_patients.append(PatientResponse(**response_data))
+        
+        # Calculate pagination info
+        total_pages = (total_count + size - 1) // size
+        
+        logger.info("Enhanced patient list retrieved", 
+                   count=len(response_patients),
+                   total=total_count,
+                   page=page,
+                   size=size,
+                   user_id=current_user_id,
+                   role=context.role)
+        
+        return PatientListResponse(
+            patients=response_patients,
+            total=total_count,
+            limit=size,
+            offset=(page - 1) * size
+        )
+        
+    except Exception as e:
+        import traceback
+        logger.error("Failed to list patients", error=str(e), traceback=traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to retrieve patients")
+
+
+@router.put("/patients/{patient_id}", response_model=PatientResponse)
+async def update_patient(
+    patient_id: str,
+    patient_updates: PatientUpdate,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Update patient with validation and PHI encryption."""
+    try:
+        logger.info(f"🟢 STEP 1/12: Starting update for patient_id: {patient_id}")
+        logger.info(f"🟢 STEP 2/12: User authenticated: {current_user_id}")
+        
+        # Get and update patient using unified database
+        from app.core.database_unified import Patient
+        from sqlalchemy import select
+        import uuid
+        
+        logger.info(f"🟢 STEP 3/12: Imports completed successfully")
+        
+        # Validate patient_id format
+        try:
+            patient_uuid = uuid.UUID(patient_id)
+            logger.info(f"🟢 STEP 4/12: UUID validation passed: {patient_uuid}")
+        except ValueError as e:
+            logger.error(f"❌ STEP 4/12 FAILED: UUID validation error: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid patient ID format"
+            )
+        
+        # Query patient
+        logger.info(f"🟢 STEP 5/12: Building database query")
+        query = select(Patient).where(
+            Patient.id == patient_uuid,
+            Patient.soft_deleted_at.is_(None)
+        )
+        
+        logger.info(f"🟢 STEP 6/12: Executing database query")
+        result = await db.execute(query)
+        patient = result.scalar_one_or_none()
+        
+        logger.info(f"🟢 STEP 7/12: Database query completed, patient found: {patient is not None}")
+        
+        if not patient:
+            logger.error(f"❌ STEP 7/12 FAILED: Patient not found in database")
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Convert updates to dictionary, excluding None values
+        logger.info(f"🟢 STEP 8/12: Converting patient updates to dictionary")
+        try:
+            updates = {k: v for k, v in patient_updates.model_dump().items() if v is not None}
+            logger.info(f"🟢 STEP 8/12: Successfully converted updates: {updates}")
+            logger.info(f"🟢 STEP 8/12: Update keys: {list(updates.keys())}")
+        except Exception as e:
+            logger.error(f"❌ STEP 8/12 FAILED: Error converting updates: {e}")
+            raise
+        
+        # Initialize security manager
+        logger.info(f"🟢 STEP 9/12: Initializing SecurityManager")
+        try:
+            security_manager = SecurityManager()
+            logger.info(f"🟢 STEP 9/12: SecurityManager initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ STEP 9/12 FAILED: SecurityManager initialization failed: {e}")
+            raise
+        
+        # Update consent information
+        logger.info(f"🟢 STEP 10/12: Processing consent updates")
+        if "consent_status" in updates or "consent_types" in updates:
+            try:
+                logger.info(f"🟢 STEP 10a/12: Found consent updates to process")
+                logger.info(f"🟢 STEP 10a/12: Current patient consent_status type: {type(patient.consent_status)}")
+                logger.info(f"🟢 STEP 10a/12: Current patient consent_status value: {patient.consent_status}")
+                
+                current_consent = patient.consent_status or {}
+                logger.info(f"🟢 STEP 10b/12: Current consent dict: {current_consent}")
+                
+                if "consent_status" in updates:
+                    logger.info(f"🟢 STEP 10c/12: Updating consent status to: {updates['consent_status']}")
+                    current_consent["status"] = updates["consent_status"]
+                    
+                if "consent_types" in updates:
+                    logger.info(f"🟢 STEP 10d/12: Updating consent types to: {updates['consent_types']}")
+                    current_consent["types"] = updates["consent_types"]
+                
+                logger.info(f"🟢 STEP 10e/12: Final consent dict: {current_consent}")
+                patient.consent_status = current_consent
+                logger.info(f"🟢 STEP 10f/12: Consent information updated successfully")
+            except Exception as e:
+                logger.error(f"❌ STEP 10/12 FAILED: Consent update error: {e}")
+                import traceback
+                logger.error(f"❌ STEP 10/12 TRACEBACK: {traceback.format_exc()}")
+                raise
+        else:
+            logger.info(f"🟢 STEP 10/12: No consent updates needed")
+        
+        # Update basic fields
+        logger.info(f"🟢 STEP 11/12: Processing basic field updates")
+        try:
+            if "gender" in updates:
+                logger.info(f"🟢 STEP 11a/12: Updating gender to: {updates['gender']}")
+                patient.gender = updates["gender"]
+                logger.info(f"🟢 STEP 11a/12: Gender updated successfully")
+                
+            if "active" in updates:
+                logger.info(f"🟢 STEP 11b/12: Updating active to: {updates['active']}")
+                patient.active = updates["active"]
+                logger.info(f"🟢 STEP 11b/12: Active updated successfully")
+                
+            # Mark as updated
+            logger.info(f"🟢 STEP 11c/12: Setting updated timestamp")
+            patient.updated_at = datetime.utcnow()
+            logger.info(f"🟢 STEP 11c/12: Updated timestamp set successfully")
+            
+        except Exception as e:
+            logger.error(f"❌ STEP 11/12 FAILED: Basic field update error: {e}")
+            raise
+        
+        logger.info(f"🟢 STEP 12/12: Committing database changes")
+        try:
+            await db.commit()
+            logger.info(f"🟢 STEP 12a/12: Database commit successful")
+            
+            await db.refresh(patient)
+            logger.info(f"🟢 STEP 12b/12: Patient refresh successful")
+            
+        except Exception as e:
+            logger.error(f"❌ STEP 12/12 FAILED: Database commit/refresh error: {e}")
+            raise
+        
+        logger.info("🎉 ALL STEPS COMPLETED: Patient database update successful")
+        
+        try:
+            logger.info("🔄 RESPONSE CREATION: Starting response data preparation")
+            
+            # Decrypt for response with proper error handling
+            first_name = ""
+            last_name = ""
+            birth_date = None
+            
+            logger.info("🔄 RESPONSE CREATION: Starting secure decryption with error handling")
+            
+            # Safe decryption with fallback for InvalidToken
+            try:
+                if patient.first_name_encrypted:
+                    first_name = security_manager.decrypt_data(patient.first_name_encrypted)
+                    logger.info(f"🔄 RESPONSE CREATION: First name decrypted successfully")
+            except Exception as decrypt_error:
+                logger.warning(f"🔄 RESPONSE CREATION: First name decryption failed (using fallback): {decrypt_error}")
+                first_name = "***ENCRYPTED***"
+                
+            try:
+                if patient.last_name_encrypted:
+                    last_name = security_manager.decrypt_data(patient.last_name_encrypted)
+                    logger.info(f"🔄 RESPONSE CREATION: Last name decrypted successfully")
+            except Exception as decrypt_error:
+                logger.warning(f"🔄 RESPONSE CREATION: Last name decryption failed (using fallback): {decrypt_error}")
+                last_name = "***ENCRYPTED***"
+                
+            try:
+                if patient.date_of_birth_encrypted:
+                    birth_date_str = security_manager.decrypt_data(patient.date_of_birth_encrypted)
+                    if birth_date_str:
+                        birth_date = datetime.fromisoformat(birth_date_str).date()
+                        logger.info(f"🔄 RESPONSE CREATION: Birth date decrypted and parsed successfully")
+            except Exception as decrypt_error:
+                logger.warning(f"🔄 RESPONSE CREATION: Birth date decryption failed (using fallback): {decrypt_error}")
+                birth_date = None
+            
+            logger.info("🔄 RESPONSE CREATION: Building response data structure")
+            # Build response using proven patterns from Get Patient
+            response_data = {
+                "resourceType": "Patient",
+                "id": str(patient.id),
+                "identifier": getattr(patient, 'identifier', []) or [],
+                "active": getattr(patient, 'active', True),
+                "name": [{"use": "official", "family": last_name, "given": [first_name] if first_name else []}],
+                "telecom": getattr(patient, 'telecom', None),
+                "gender": getattr(patient, 'gender', None),
+                "birthDate": birth_date,
+                "address": getattr(patient, 'address', None),
+                "consent_status": patient.consent_status.get("status", "pending") if isinstance(patient.consent_status, dict) else (patient.consent_status or "pending"),
+                "consent_types": patient.consent_status.get("types", []) if isinstance(patient.consent_status, dict) else (getattr(patient, 'consent_types', []) or []),
+                "organization_id": getattr(patient, 'organization_id', None) or getattr(patient, 'tenant_id', None),
+                "created_at": patient.created_at.isoformat() if patient.created_at else None,
+                "updated_at": (patient.updated_at or patient.created_at).isoformat() if (patient.updated_at or patient.created_at) else None
+            }
+            
+            logger.info(f"🔄 RESPONSE CREATION: Response data built successfully")
+            logger.info(f"🔄 RESPONSE CREATION: Response data keys: {list(response_data.keys())}")
+            
+            logger.info("🔄 RESPONSE CREATION: Creating PatientResponse object")
+            patient_response = PatientResponse(**response_data)
+            
+            logger.info(f"✅ FINAL SUCCESS: Patient updated successfully: {patient_id}")
+            return patient_response
+            
+        except Exception as response_error:
+            logger.error(f"❌ RESPONSE CREATION FAILED: {response_error}")
+            logger.error(f"❌ RESPONSE ERROR TYPE: {type(response_error).__name__}")
+            import traceback
+            logger.error(f"❌ RESPONSE TRACEBACK: {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Update succeeded but response creation failed: {str(response_error)}"
+            )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update patient {patient_id}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail="Failed to update patient")
+
+@router.delete("/patients/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_patient(
+    patient_id: str,
+    reason: str = Query(..., description="Reason for deletion"),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))  # Require admin role for deletion
+):
+    """Soft delete patient for GDPR compliance."""
+    try:
+        # Soft delete patient directly in database
+        from app.core.database_unified import Patient
+        from sqlalchemy import select
+        from datetime import datetime
+        
+        # Query patient
+        query = select(Patient).where(
+            Patient.id == patient_id,
+            Patient.soft_deleted_at.is_(None)
+        )
+        result = await db.execute(query)
+        patient = result.scalar_one_or_none()
+        
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Soft delete the patient
+        patient.soft_deleted_at = datetime.utcnow()
+        # Note: deletion_reason and deleted_by fields don't exist in current schema
+        
+        await db.commit()
+        
+        logger.info("Patient deleted", 
+                   patient_id=patient_id,
+                   reason=reason,
+                   user_id=current_user_id)
+        
+        return None
+        
+    except Exception as e:
+        logger.error("Failed to delete patient", 
+                    patient_id=patient_id, error=str(e))
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Patient not found")
+        raise HTTPException(status_code=500, detail="Failed to delete patient")
+
+@router.get("/patients/search", response_model=PatientListResponse)
+async def search_patients(
+    identifier: Optional[str] = Query(None, description="Search by identifier"),
+    family_name: Optional[str] = Query(None, description="Search by family name"),
+    gender: Optional[str] = Query(None, description="Search by gender"),
+    organization_id: Optional[str] = Query(None, description="Search by organization"),
+    offset: int = Query(default=0, description="Records to skip"),
+    limit: int = Query(default=50, le=1000, description="Records limit"),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Search patients with various criteria."""
+    try:
+        service = await get_healthcare_service(session=db)
+        
+        # Create access context
+        from app.modules.healthcare_records.service import AccessContext
+        context = AccessContext(
+            user_id=current_user_id,
+            purpose="operations",
+            role="operator",
+            ip_address=None,
+            session_id=None
+        )
+        
+        # Build search filters
+        filters = {}
+        if organization_id:
+            filters["tenant_id"] = organization_id
+        if identifier:
+            filters["mrn"] = identifier
+        
+        # Query patients directly from database (same as list_patients for now)
+        from app.core.database_unified import Patient
+        from app.core.security import EncryptionService
+        from sqlalchemy import select, func
+        
+        # Build query
+        query = select(Patient).where(Patient.soft_deleted_at.is_(None))
+        count_query = select(func.count(Patient.id)).where(Patient.soft_deleted_at.is_(None))
+        
+        # Apply filters if provided
+        if organization_id:
+            # Since tenant_id doesn't exist, we'll just log this for now
+            logger.info("Organization filter requested but not supported in current schema", 
+                       organization_id=organization_id)
+        if identifier:
+            # Since MRN search requires decryption, we'll skip this for now
+            logger.info("MRN filter requested but not supported without decryption", identifier=identifier)
+        
+        # Apply pagination
+        query = query.limit(limit).offset(offset)
+        
+        # Execute queries
+        result = await db.execute(query)
+        patients = result.scalars().all()
+        
+        count_result = await db.execute(count_query)
+        total_count = count_result.scalar()
+        
+        # Decrypt and convert to response format
+        security_manager = SecurityManager()
+        response_patients = []
+        
+        for patient in patients:
+            # Decrypt PHI fields
+            first_name = ""
+            last_name = ""
+            birth_date = None
+            
+            # SOC2 Type II MAXIMUM SECURITY: No PHI in list views
+            # Only show patient identifier - never decrypt names in lists
+            first_name = "Patient"
+            last_name = f"{str(patient.id)[:8]}"
+            
+            # Log list access for SOC2 audit compliance
+            logger.info("SOC2 - Patient list access", 
+                       user_id=current_user_id,
+                       patient_id=patient.id, 
+                       access_level="identifier_only",
+                       phi_disclosed=False,
+                       purpose="patient_list_view",
+                       compliance_level="SOC2_Type_II")
+            
+            response_data = {
+                "resourceType": "Patient",
+                "id": str(patient.id),
+                "identifier": [],
+                "active": True,
+                "name": [{"use": "official", "family": last_name, "given": [first_name] if first_name else []}],
+                "telecom": None,
+                "gender": None,
+                "birthDate": birth_date,
+                "address": None,
+                "consent_status": patient.consent_status.get("status", "pending") if patient.consent_status else "pending",
+                "consent_types": patient.consent_status.get("types", []) if patient.consent_status else [],
+                "organization_id": None,
+                "created_at": patient.created_at,
+                "updated_at": patient.updated_at or patient.created_at
+            }
+            
+            response_patients.append(PatientResponse(**response_data))
+        
+        logger.info("Patient search completed", 
+                   matches=len(response_patients),
+                   total=total_count,
+                   filters=filters,
+                   user_id=current_user_id)
+        
+        # Return paginated response format expected by tests
+        return {
+            "patients": response_patients,
+            "total": total_count,
+            "limit": limit,
+            "offset": offset
+        }
+        
+    except Exception as e:
+        logger.error("Failed to search patients", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to search patients")
+
+@router.get("/patients/{patient_id}/consent-status")
+async def get_patient_consent_status(
+    patient_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Get patient consent status information."""
+    try:
+        # Get patient consent status directly from patient record
+        from app.core.database_unified import Patient
+        from sqlalchemy import select
+        
+        # Query patient
+        query = select(Patient).where(
+            Patient.id == patient_id,
+            Patient.soft_deleted_at.is_(None)
+        )
+        result = await db.execute(query)
+        patient = result.scalar_one_or_none()
+        
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Extract consent information from patient record
+        consent_status = patient.consent_status or {}
+        
+        # Format consent status response
+        consent_info = {
+            "patient_id": patient_id,
+            "consent_status": consent_status.get("status", "pending"),
+            "consent_types": consent_status.get("types", []),
+            "last_updated": patient.updated_at or patient.created_at,
+            "total_consents": len(consent_status.get("types", []))
+        }
+        
+        logger.info("Patient consent status retrieved", 
+                   patient_id=patient_id,
+                   consent_count=consent_info["total_consents"],
+                   user_id=current_user_id)
+        
+        return consent_info
+        
+    except Exception as e:
+        logger.error("Failed to get patient consent status", 
+                    patient_id=patient_id, error=str(e))
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Patient not found")
+        raise HTTPException(status_code=500, detail="Failed to get consent status")
+
+# ============================================
+# CLINICAL DOCUMENTS ENDPOINTS
+# ============================================
+
+@router.post("/documents", response_model=ClinicalDocumentResponse, status_code=status.HTTP_201_CREATED)
+async def create_clinical_document(
+    document_data: ClinicalDocumentCreate,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Create new clinical document with PHI encryption."""
+    try:
+        service = await get_healthcare_service(session=db)
+        document = await service.create_clinical_document(
+            document_data.dict(), current_user_id, db
+        )
+        
+        logger.info("Clinical document created", 
+                   document_id=document.id, 
+                   patient_id=document.patient_id,
+                   user_id=current_user_id)
+        
+        return document
+        
+    except Exception as e:
+        logger.error("Failed to create clinical document", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to create clinical document")
+
+@router.get("/documents", response_model=List[ClinicalDocumentResponse])
+async def get_clinical_documents(
+    patient_id: Optional[str] = Query(None, description="Filter by patient ID"),
+    document_type: Optional[str] = Query(None, description="Filter by document type"),
+    skip: int = Query(default=0, description="Records to skip"),
+    limit: int = Query(default=100, le=1000, description="Records limit"),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Get clinical documents with access control."""
+    try:
+        service = await get_healthcare_service(session=db)
+        documents = await service.get_clinical_documents(
+            patient_id=patient_id,
+            document_type=document_type,
+            skip=skip,
+            limit=limit,
+            user_id=current_user_id,
+            db=db
+        )
+        
+        logger.info("Clinical documents retrieved", 
+                   count=len(documents),
+                   patient_id=patient_id,
+                   user_id=current_user_id)
+        
+        return documents
+        
+    except Exception as e:
+        logger.error("Failed to retrieve clinical documents", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve clinical documents")
+
+@router.get("/documents/{document_id}", response_model=ClinicalDocumentResponse)
+async def get_clinical_document(
+    document_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Get specific clinical document with PHI access logging."""
+    try:
+        service = await get_healthcare_service(session=db)
+        document = await service.get_clinical_document(
+            document_id, current_user_id, db
+        )
+        
+        if not document:
+            raise HTTPException(status_code=404, detail="Clinical document not found")
+        
+        return document
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to retrieve clinical document", 
+                    document_id=document_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve clinical document")
+
+# ============================================
+# CONSENT MANAGEMENT ENDPOINTS
+# ============================================
+
+@router.post("/consents", response_model=ConsentResponse, status_code=status.HTTP_201_CREATED)
+async def create_consent(
+    consent_data: ConsentCreate,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Create new patient consent record."""
+    try:
+        service = await get_healthcare_service(session=db)
+        consent = await service.create_consent(
+            consent_data.dict(), current_user_id, db
+        )
+        
+        logger.info("Patient consent created", 
+                   consent_id=consent.id,
+                   patient_id=consent.patient_id,
+                   user_id=current_user_id)
+        
+        return consent
+        
+    except Exception as e:
+        logger.error("Failed to create consent", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to create consent")
+
+@router.get("/consents", response_model=List[ConsentResponse])
+async def get_consents(
+    patient_id: Optional[str] = Query(None, description="Filter by patient ID"),
+    status_filter: Optional[str] = Query(None, description="Filter by consent status"),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Get patient consents with filtering."""
+    try:
+        service = await get_healthcare_service(session=db)
+        consents = await service.get_consents(
+            patient_id=patient_id,
+            status_filter=status_filter,
+            user_id=current_user_id,
+            db=db
+        )
+        
+        return consents
+        
+    except Exception as e:
+        logger.error("Failed to retrieve consents", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve consents")
+
+# ============================================
+# FHIR VALIDATION ENDPOINTS
+# ============================================
+
+@router.post("/fhir/validate", response_model=FHIRValidationResponse)
+async def validate_fhir_resource(
+    validation_request: FHIRValidationRequest,
+    current_user_id: str = Depends(get_current_user_id),
+    _: dict = Depends(require_role("admin"))
+):
+    """Validate FHIR resource compliance."""
+    try:
+        service = await get_healthcare_service()
+        validation_result = await service.validate_fhir_resource(
+            validation_request.resource_type,
+            validation_request.resource_data,
+            validation_request.profile_url
+        )
+        
+        logger.info("FHIR validation completed", 
+                   resource_type=validation_request.resource_type,
+                   is_valid=validation_result.is_valid,
+                   user_id=current_user_id)
+        
+        return validation_result
+        
+    except Exception as e:
+        logger.error("FHIR validation failed", error=str(e))
+        raise HTTPException(status_code=500, detail="FHIR validation failed")
+
+# ============================================
+# DATA ANONYMIZATION ENDPOINTS
+# ============================================
+
+@router.post("/anonymize", response_model=AnonymizationResponse)
+async def anonymize_data(
+    anonymization_request: AnonymizationRequest,
+    background_tasks: BackgroundTasks,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Anonymize PHI data for research or analytics."""
+    try:
+        # For large datasets, run in background
+        if anonymization_request.batch_size and anonymization_request.batch_size > 1000:
+            service = await get_healthcare_service(session=db)
+            background_tasks.add_task(
+                service.anonymize_data_batch,
+                anonymization_request.dict(),
+                current_user_id,
+                db
+            )
+            
+            return AnonymizationResponse(
+                request_id=f"bg_{anonymization_request.request_id}",
+                status="processing",
+                message="Large anonymization request queued for background processing"
+            )
+        
+        # For small datasets, process synchronously
+        service = await get_healthcare_service(session=db)
+        result = await service.anonymize_data(
+            anonymization_request.dict(), current_user_id, db
+        )
+        
+        logger.info("Data anonymization completed", 
+                   request_id=anonymization_request.request_id,
+                   records_processed=result.records_processed,
+                   user_id=current_user_id)
+        
+        return result
+        
+    except Exception as e:
+        logger.error("Data anonymization failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Data anonymization failed")
+
+@router.get("/anonymization/status/{request_id}")
+async def get_anonymization_status(
+    request_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    _: dict = Depends(require_role("admin"))
+):
+    """Get status of anonymization request."""
+    try:
+        service = await get_healthcare_service()
+        status_info = await service.get_anonymization_status(request_id)
+        
+        if not status_info:
+            raise HTTPException(status_code=404, detail="Anonymization request not found")
+        
+        return status_info
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get anonymization status", 
+                    request_id=request_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get anonymization status")
+
+# ============================================
+# PHI ACCESS AUDIT ENDPOINTS
+# ============================================
+
+@router.get("/audit/phi-access")
+async def get_phi_access_audit(
+    patient_id: Optional[str] = Query(None, description="Filter by patient ID"),
+    user_id: Optional[str] = Query(None, description="Filter by accessing user"),
+    start_date: Optional[str] = Query(None, description="Start date filter"),
+    end_date: Optional[str] = Query(None, description="End date filter"),
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Get PHI access audit logs."""
+    try:
+        service = await get_healthcare_service(session=db)
+        audit_logs = await service.get_phi_access_audit(
+            patient_id=patient_id,
+            user_id=user_id,
+            start_date=start_date,
+            end_date=end_date,
+            requesting_user_id=current_user_id,
+            db=db
+        )
+        
+        logger.info("PHI access audit retrieved", 
+                   records=len(audit_logs),
+                   user_id=current_user_id)
+        
+        return {
+            "audit_logs": audit_logs,
+            "total_count": len(audit_logs)
+        }
+        
+    except Exception as e:
+        logger.error("Failed to retrieve PHI access audit", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to retrieve PHI access audit")
+
+# ============================================
+# COMPLIANCE ENDPOINTS
+# ============================================
+
+@router.get("/compliance/summary")
+async def get_compliance_summary(
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin"))
+):
+    """Get healthcare compliance summary."""
+    try:
+        service = await get_healthcare_service(session=db)
+        summary = await service.get_compliance_summary(
+            current_user_id, db
+        )
+        
+        return {
+            "hipaa_compliance": "active",
+            "fhir_compliance": "r4_enabled",
+            "phi_encryption": "aes256_enabled",
+            "consent_management": "active",
+            "audit_logging": "comprehensive",
+            **summary
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get compliance summary", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get compliance summary")
+

@@ -110,26 +110,62 @@ backend.log
 soc2_test_results.json
 audit_*.json
 
-# Documentation and reports - NOT for GitHub competition
-reports/
-docs/
-*.md
-!README.md
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# Trash files - NOT for GitHub
-=*
-C:*
-*.jpg
-*.jpeg
-*.png
-photo_*
-*.zip
-*.ps1
-*.bat
-*test*.py
-!app/tests/
-!**/tests/
-test_fixes*.py
+# AI Model files
+*.onnx
+*.pt
+*.pth
+*.h5
+*.pkl
+*.joblib
+model_cache/
+ai/models/downloads/
+
+# Healthcare data (for security)
+*.fhir
+*.hl7
+patient_data/
+phi/
+protected_health_information/
+
+# Test outputs
+test-results/
+junit/
+test-reports/
+allure-results/
+allure-report/
+
+# Monitoring
+monitoring/data/
+grafana-storage/
+prometheus-data/
+
+# Kubernetes
+*.kubeconfig
+helm/*/charts/
+helm/*/Chart.lock
+
+# Temporary and backup files
 *.bak
-*backup*
-backups/
+*.backup
+*.old
+nul
+*~
+
+# Windows specific
+desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux specific
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*

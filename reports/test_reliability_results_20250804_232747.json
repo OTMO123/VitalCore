@@ -1,0 +1,116 @@
+{
+  "analysis": {
+    "reliable": true,
+    "consistent_results": true,
+    "total_runs": 5,
+    "successful_runs": 5,
+    "avg_pass_rate": 100.0,
+    "min_pass_rate": 100.0,
+    "max_pass_rate": 100.0,
+    "pass_rate_variance": 0.0,
+    "avg_duration": 18.224611234664916,
+    "first_passed_tests": [
+      "TestPatientAPI"
+    ],
+    "first_failed_tests": [],
+    "enterprise_ready": true
+  },
+  "results": [
+    {
+      "success": true,
+      "duration": 20.558435201644897,
+      "passed_tests": [
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI"
+      ],
+      "failed_tests": [],
+      "pass_count": 4,
+      "fail_count": 0,
+      "total_tests": 4,
+      "pass_rate": 100.0,
+      "stdout": "============================= test session starts ==============================\ncollecting ... collected 4 items\n\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_access_control PASSED [ 25%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_phi_encryption_integration PASSED [ 50%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_consent_management PASSED [ 75%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_update_patient PASSED [100%]\n\n======================= 4 passed, 143 warnings in 8.45s ========================\n",
+      "stderr": "/home/otmo/.local/lib/python3.10/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'Connection._cancel' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n",
+      "return_code": 0
+    },
+    {
+      "success": true,
+      "duration": 15.612558364868164,
+      "passed_tests": [
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI"
+      ],
+      "failed_tests": [],
+      "pass_count": 4,
+      "fail_count": 0,
+      "total_tests": 4,
+      "pass_rate": 100.0,
+      "stdout": "============================= test session starts ==============================\ncollecting ... collected 4 items\n\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_access_control PASSED [ 25%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_phi_encryption_integration PASSED [ 50%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_consent_management PASSED [ 75%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_update_patient PASSED [100%]\n\n======================= 4 passed, 143 warnings in 5.08s ========================\n",
+      "stderr": "/home/otmo/.local/lib/python3.10/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'Connection._cancel' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n",
+      "return_code": 0
+    },
+    {
+      "success": true,
+      "duration": 16.49783229827881,
+      "passed_tests": [
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI"
+      ],
+      "failed_tests": [],
+      "pass_count": 4,
+      "fail_count": 0,
+      "total_tests": 4,
+      "pass_rate": 100.0,
+      "stdout": "============================= test session starts ==============================\ncollecting ... collected 4 items\n\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_access_control PASSED [ 25%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_phi_encryption_integration PASSED [ 50%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_consent_management PASSED [ 75%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_update_patient PASSED [100%]\n\n======================= 4 passed, 143 warnings in 6.40s ========================\n",
+      "stderr": "/home/otmo/.local/lib/python3.10/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'Connection._cancel' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n",
+      "return_code": 0
+    },
+    {
+      "success": true,
+      "duration": 21.74863076210022,
+      "passed_tests": [
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI"
+      ],
+      "failed_tests": [],
+      "pass_count": 4,
+      "fail_count": 0,
+      "total_tests": 4,
+      "pass_rate": 100.0,
+      "stdout": "============================= test session starts ==============================\ncollecting ... collected 4 items\n\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_access_control PASSED [ 25%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_phi_encryption_integration PASSED [ 50%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_consent_management PASSED [ 75%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_update_patient PASSED [100%]\n\n======================= 4 passed, 143 warnings in 7.98s ========================\n",
+      "stderr": "/home/otmo/.local/lib/python3.10/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'Connection._cancel' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n",
+      "return_code": 0
+    },
+    {
+      "success": true,
+      "duration": 16.705599546432495,
+      "passed_tests": [
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI",
+        "TestPatientAPI"
+      ],
+      "failed_tests": [],
+      "pass_count": 4,
+      "fail_count": 0,
+      "total_tests": 4,
+      "pass_rate": 100.0,
+      "stdout": "============================= test session starts ==============================\ncollecting ... collected 4 items\n\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_access_control PASSED [ 25%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_phi_encryption_integration PASSED [ 50%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_patient_consent_management PASSED [ 75%]\napp/tests/core/healthcare_records/test_patient_api.py::TestPatientAPI::test_update_patient PASSED [100%]\n\n======================= 4 passed, 143 warnings in 5.93s ========================\n",
+      "stderr": "/home/otmo/.local/lib/python3.10/site-packages/_pytest/unraisableexception.py:33: RuntimeWarning: coroutine 'Connection._cancel' was never awaited\n  gc.collect()\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\n",
+      "return_code": 0
+    }
+  ],
+  "metadata": {
+    "timestamp": "2025-08-04T23:27:47.946864",
+    "platform": "Linux",
+    "python_version": "3.10.12 (main, May 27 2025, 17:12:29) [GCC 11.4.0]",
+    "working_directory": "/mnt/c/Users/aurik/Code_Projects/2_scraper"
+  }
+}

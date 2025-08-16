@@ -51,7 +51,7 @@ async def create_test_user(
             email=email,
             password=password,
             role=role,
-            email_verified=True,  # Tests need verified users
+            email_verified=True,  # Enterprise tests require verified users for compliance
             is_active=is_active
         )
         
@@ -61,7 +61,9 @@ async def create_test_user(
         
         print(f"DEBUG: User created by auth_service - ID: {user.id}, Email Verified: {user.email_verified}, Active: {user.is_active}")
         
-        # User should already be created with correct email_verified and is_active status
+        # Ensure user is properly committed to database for enterprise compliance testing
+        await db_session.commit()
+        await db_session.refresh(user)
         
         print(f"DEBUG: User committed to database - Final user: ID={user.id}, Username={user.username}, Active={user.is_active}")
         
@@ -106,9 +108,18 @@ async def get_auth_headers(
     }
     
     try:
+        # Add required headers for enterprise authentication
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Enterprise-Healthcare-Test-Client",
+            "X-Real-IP": "127.0.0.1",
+            "X-Forwarded-For": "127.0.0.1"
+        }
+        
         response = await async_client.post(
             f"{base_url}/api/v1/auth/login",
-            json=login_data
+            json=login_data,
+            headers=headers
         )
         
         if response.status_code != 200:

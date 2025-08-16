@@ -671,6 +671,10 @@ class ImmunizationCreate(BaseModel):
     contraindication_codes: Optional[List[str]] = Field(default_factory=list)
     reactions: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     
+    # Series completion tracking (enterprise compliance fields)
+    series_complete: bool = Field(default=False, description="Whether vaccine series is complete")
+    series_dosed: Optional[int] = Field(default=1, description="Number of doses administered in series")
+    
     # Metadata
     tenant_id: Optional[UUID] = Field(None, description="Tenant ID")
     organization_id: Optional[UUID] = Field(None, description="Organization ID")
@@ -685,7 +689,16 @@ class ImmunizationCreate(BaseModel):
     @field_validator('occurrence_datetime')
     @classmethod
     def validate_occurrence_datetime(cls, v):
-        if v > datetime.now():
+        # Use timezone-aware datetime for comparison to handle both timezone-naive and timezone-aware inputs
+        now = datetime.now(timezone.utc)
+        
+        # If v is timezone-naive, assume UTC for comparison
+        if v.tzinfo is None:
+            v_utc = v.replace(tzinfo=timezone.utc)
+        else:
+            v_utc = v
+            
+        if v_utc > now:
             raise ValueError("Occurrence datetime cannot be in the future")
         return v
 
@@ -743,6 +756,10 @@ class ImmunizationResponse(BaseModel):
     indication_codes: List[str] = Field(default_factory=list)
     contraindication_codes: List[str] = Field(default_factory=list)
     reactions: List[Dict[str, Any]] = Field(default_factory=list)
+    
+    # Series completion tracking (enterprise compliance fields)
+    series_complete: bool = Field(default=False)
+    series_dosed: Optional[int] = Field(default=1)
     
     # Metadata
     created_at: datetime

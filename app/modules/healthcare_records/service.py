@@ -285,6 +285,20 @@ class PatientService:
             circuit_breaker = CircuitBreaker(config)
         self.circuit_breaker = circuit_breaker
         self.logger = logger.bind(service="PatientService")
+        # Flag to control automatic commits - used by FHIR bundle processor
+        self._auto_commit = True
+    
+    async def _conditional_commit(self):
+        """Commit the session only if auto-commit is enabled (not in bundle mode)."""
+        if self._auto_commit:
+            await self.session.commit()
+        else:
+            # In bundle mode - just flush to generate IDs but don't commit
+            await self.session.flush()
+    
+    def set_bundle_mode(self, bundle_mode: bool = True):
+        """Enable/disable bundle mode to control automatic commits."""
+        self._auto_commit = not bundle_mode
     
     @trace_method("create_patient")
     @metrics.track_operation("patient.create")
@@ -339,8 +353,8 @@ class PatientService:
             await self._create_default_consents(patient.id, context)
             self.logger.info("Service: Default consents created")
             
-            # Commit transaction
-            await self.session.commit()
+            # Commit transaction (only if auto-commit is enabled)
+            await self._conditional_commit()
             
             # Publish domain event using new event system with error handling
             try:
@@ -484,7 +498,7 @@ class PatientService:
         patient.updated_at = datetime.now(timezone.utc)
         patient.updated_by = context.user_id
         
-        await self.session.commit()
+        await self._conditional_commit()
         
         # Publish update event using new event system
         await self.event_bus.publish_patient_updated(
@@ -592,7 +606,7 @@ class PatientService:
         patient.deletion_reason = reason
         patient.deleted_by = context.user_id
         
-        await self.session.commit()
+        await self._conditional_commit()
         
         # Publish patient deactivated event
         await self.event_bus.publish_event(
@@ -995,29 +1009,30 @@ class PatientService:
                     return
                 raise
             
-            session_factory = await get_session_factory()
-            async with session_factory() as audit_session:
-                audit_log = PHIAccessLog(
-                    id=str(uuid.uuid4()),
-                    access_session_id=str(context.session_id) if context.session_id else str(uuid.uuid4()),
-                    patient_id=safe_uuid_convert(patient_id),
-                    user_id=safe_uuid_convert(context.user_id),
-                    user_role=getattr(context, 'user_role', 'USER'),
-                    access_type=access_type,
-                    phi_fields_accessed=fields_accessed,
-                    access_purpose=context.purpose,
-                    legal_basis='treatment',  # HIPAA legal basis
-                    access_granted=True,
-                    data_returned=True,
-                    ip_address=context.ip_address,
-                    consent_verified=True,
-                    minimum_necessary_applied=True,
-                    access_started_at=datetime.now(timezone.utc),
-                    data_classification=DataClassification.PHI.value
-                )
-                
-                audit_session.add(audit_log)
-                await audit_session.commit()
+            # Use the current session instead of creating a new one to avoid foreign key violations
+            # This ensures the audit log can see the patient record within the same transaction
+            audit_log = PHIAccessLog(
+                id=str(uuid.uuid4()),
+                access_session_id=str(context.session_id) if context.session_id else str(uuid.uuid4()),
+                patient_id=safe_uuid_convert(patient_id),
+                user_id=safe_uuid_convert(context.user_id),
+                user_role=getattr(context, 'user_role', 'USER'),
+                access_type=access_type,
+                phi_fields_accessed=fields_accessed,
+                access_purpose=context.purpose,
+                legal_basis='treatment',  # HIPAA legal basis
+                access_granted=True,
+                data_returned=True,
+                ip_address=context.ip_address,
+                consent_verified=True,
+                minimum_necessary_applied=True,
+                access_started_at=datetime.now(timezone.utc),
+                data_classification=DataClassification.PHI.value
+            )
+            
+            # Add to the current session and flush (don't commit - let the bundle transaction handle commit)
+            self.session.add(audit_log)
+            await self.session.flush()
             
             # Publish PHI access event using new event system with event loop protection
             try:
@@ -1306,7 +1321,7 @@ class ClinicalDocumentService:
             )
             
             self.session.add(document)
-            await self.session.commit()
+            await self._conditional_commit()
             
             # Publish event
             await self.event_bus.publish(
@@ -1435,7 +1450,7 @@ class ClinicalDocumentService:
         document.updated_at = datetime.now(timezone.utc)
         document.updated_by = context.user_id
         
-        await self.session.commit()
+        await self._conditional_commit()
         
         return document
     
@@ -1453,7 +1468,7 @@ class ClinicalDocumentService:
         document.deletion_reason = reason
         document.deleted_by = context.user_id
         
-        await self.session.commit()
+        await self._conditional_commit()
         
         self.logger.info(
             "Document archived",
@@ -1522,7 +1537,7 @@ class ConsentService:
             )
             self.session.add(consent)
         
-        await self.session.commit()
+        await self._conditional_commit()
         
         # Publish consent event
         await self.event_bus.publish(
@@ -1563,7 +1578,7 @@ class ConsentService:
         consent.revoked_by = context.user_id
         consent.revocation_reason = reason
         
-        await self.session.commit()
+        await self._conditional_commit()
         
         # Publish revocation event
         await self.event_bus.publish(
@@ -1864,7 +1879,7 @@ class PHIAccessAuditService:
         for log in logs_to_delete:
             await self.session.delete(log)
         
-        await self.session.commit()
+        await self._conditional_commit()
         
         deleted_count = len(logs_to_delete)
         
@@ -2231,15 +2246,20 @@ async def get_healthcare_service(
 ) -> HealthcareRecordsService:
     """Get or create healthcare service instance"""
     from app.core.security import EncryptionService
-    from app.core.event_bus_advanced import HybridEventBus
+    from app.core.events.event_bus import HealthcareEventBus, get_event_bus
     
     # Always create a new instance with the provided session
     if encryption is None:
         encryption = EncryptionService()
     if event_bus is None:
-        from app.core.database import get_session_factory
-        session_factory = get_session_factory()
-        event_bus = HybridEventBus(session_factory)
+        # Use the proper HealthcareEventBus for enterprise compliance
+        try:
+            event_bus = get_event_bus()
+        except RuntimeError:
+            # If healthcare event bus is not initialized, create one
+            from app.core.database import get_session_factory
+            session_factory = get_session_factory()
+            event_bus = HealthcareEventBus(session_factory)
         
     # Create service instance with provided session
     service = HealthcareRecordsService(
