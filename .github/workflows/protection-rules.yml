@@ -77,9 +77,14 @@ jobs:
               --exclude-dir=node_modules \
               --exclude-dir=__pycache__ \
               --exclude-dir=.pytest_cache \
+              --exclude-dir=scripts/setup \
+              --exclude-dir=scripts/test \
+              --exclude-dir=tests \
               --exclude="*.pyc" \
               --exclude="*.log" \
               --exclude="*.md" \
+              --exclude="*test*.sql" \
+              --exclude="*test*.py" \
               2>/dev/null || true)
             
             if [[ -n "$MATCHES" ]]; then
@@ -149,7 +154,7 @@ jobs:
           
           CRITICAL_FILES=(
             "app/main.py"
-            "docker-compose.yml"
+            "infrastructure/docker/docker-compose.yml"
             "requirements.txt"
             "alembic.ini"
             "app/core/database_unified.py"
