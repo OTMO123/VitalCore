@@ -5,6 +5,7 @@ Tests rule-based, ML-based, and ensemble classification approaches.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from unittest.mock import Mock, AsyncMock
 

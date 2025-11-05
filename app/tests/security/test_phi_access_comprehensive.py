@@ -19,6 +19,7 @@ This suite expands the existing 98-line basic encryption test to comprehensive
 healthcare data protection validation meeting HIPAA, SOC2, and FHIR R4 requirements.
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import hashlib
 import json

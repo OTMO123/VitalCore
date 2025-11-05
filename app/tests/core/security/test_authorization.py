@@ -5,6 +5,7 @@ Tests RBAC implementation, permission checking, and access control
 for healthcare data and administrative functions.
 """
 import pytest
+import pytest_asyncio
 import json
 import uuid
 from datetime import datetime, timedelta

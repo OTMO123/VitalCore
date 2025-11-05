@@ -306,7 +306,7 @@ async def test_sqlalchemy_schema_consistency():
         
         # Get actual database schema
         conn = await asyncpg.connect(
-            "postgresql://postgres:password@localhost:5432/iris_db"
+            "postgresql://postgres:password@localhost:5433/iris_db"
         )
         
         # Check users table schema

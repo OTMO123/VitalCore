@@ -15,6 +15,7 @@ start to finish with proper security, compliance, and audit trails.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 import uuid

@@ -19,6 +19,7 @@ This suite implements comprehensive FHIR R4 compliance testing meeting HL7 FHIR,
 healthcare interoperability standards, and regulatory compliance requirements.
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 import uuid

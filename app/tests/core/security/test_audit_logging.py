@@ -4,6 +4,7 @@ Audit logging tests for SOC2 compliance.
 Tests audit log creation, integrity, and compliance reporting.
 """
 import pytest
+import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 pytestmark = pytest.mark.audit

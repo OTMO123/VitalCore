@@ -22,6 +22,7 @@ Coverage Requirements:
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 import uuid

@@ -5,6 +5,7 @@ Following TDD principles with comprehensive test coverage.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import hashlib
 from unittest.mock import Mock, AsyncMock, patch

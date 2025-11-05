@@ -36,6 +36,7 @@ SOC2/HIPAA compliance, real-time monitoring, and clinical workflow optimization.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import time
 import statistics

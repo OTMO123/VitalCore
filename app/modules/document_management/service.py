@@ -31,6 +31,8 @@ from app.core.events.event_bus import HealthcareEventBus, get_event_bus
 from app.core.exceptions import ResourceNotFound, UnauthorizedAccess, ValidationError
 from app.core.monitoring import metrics, trace_method
 from app.core.security import SecurityManager, get_current_user_id
+from app.core.validators import file_validator
+from app.core.security_scanning import scan_uploaded_file
 
 from .schemas import (
     DocumentAuditListResponse,
@@ -294,12 +296,51 @@ class DocumentStorageService:
                 ):
                     raise UnauthorizedAccess("Access denied to patient records")
 
-                # Validate file data
-                if not file_data or len(file_data) == 0:
-                    raise ValidationError("File data cannot be empty")
+                # Comprehensive file validation with security checks
+                is_valid, validation_error, sanitized_filename = (
+                    file_validator.validate_upload(
+                        filename=upload_request.filename, content=file_data
+                    )
+                )
 
-                if len(file_data) > 100 * 1024 * 1024:  # 100MB limit
-                    raise ValidationError("File size exceeds 100MB limit")
+                if not is_valid:
+                    self.logger.warning(
+                        "File validation failed in service layer",
+                        filename=upload_request.filename,
+                        error=validation_error,
+                        user_id=context.user_id,
+                    )
+                    raise ValidationError(f"File validation failed: {validation_error}")
+
+                # Use sanitized filename for storage
+                upload_request.filename = sanitized_filename
+
+                # Malware scanning (if configured)
+                try:
+                    is_clean, threat_info = await scan_uploaded_file(
+                        content=file_data, filename=sanitized_filename
+                    )
+
+                    if not is_clean:
+                        self.logger.error(
+                            "Malware detected during service upload",
+                            filename=sanitized_filename,
+                            threat=threat_info,
+                            user_id=context.user_id,
+                        )
+                        raise ValidationError(
+                            f"Security threat detected: {threat_info}"
+                        )
+
+                except ValidationError:
+                    raise
+                except Exception as scan_error:
+                    # Log warning but don't block if scanner unavailable
+                    self.logger.warning(
+                        "Malware scan unavailable in service layer",
+                        filename=sanitized_filename,
+                        error=str(scan_error),
+                    )
 
                 # Calculate file hash
                 file_hash = hashlib.sha256(file_data).hexdigest()

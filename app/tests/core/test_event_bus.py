@@ -11,6 +11,7 @@ Comprehensive test suite covering:
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock

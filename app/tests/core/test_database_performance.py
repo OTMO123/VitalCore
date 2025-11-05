@@ -51,7 +51,7 @@ def database_config():
 @pytest.fixture
 def mock_database_url():
     """Mock database URL for testing"""
-    return "postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db"
+    return "postgresql+asyncpg://test_user:test_pass@localhost:5433/test_db"
 
 @pytest.fixture
 def query_cache():

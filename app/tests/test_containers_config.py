@@ -217,7 +217,7 @@ class DockerComposeManager:
         
         # Return service URLs
         return {
-            'database_url': 'postgresql+asyncpg://test_user:test_password@localhost:5432/test_iris_db',
+            'database_url': 'postgresql+asyncpg://test_user:test_password@localhost:5433/test_iris_db',
             'redis_url': 'redis://localhost:6379/0',
             'iris_api_url': 'http://localhost:8001'
         }
@@ -244,7 +244,7 @@ class DockerComposeManager:
     
     async def _wait_for_postgres_compose(self):
         """Wait for PostgreSQL in compose setup."""
-        connection_url = 'postgresql+asyncpg://test_user:test_password@localhost:5432/test_iris_db'
+        connection_url = 'postgresql+asyncpg://test_user:test_password@localhost:5433/test_iris_db'
         engine = create_async_engine(connection_url)
         
         for _ in range(30):

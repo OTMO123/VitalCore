@@ -20,6 +20,7 @@ Coverage Requirements:
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import time
 import json

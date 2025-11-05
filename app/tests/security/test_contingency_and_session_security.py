@@ -17,6 +17,7 @@ and compliance during various failure scenarios and security incidents.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 import json
 import uuid

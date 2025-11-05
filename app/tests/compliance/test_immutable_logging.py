@@ -13,6 +13,7 @@ This test suite ensures audit logs meet SOC2, HIPAA, and regulatory
 requirements for tamper-proof, immutable audit trails.
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import hashlib
 import hmac

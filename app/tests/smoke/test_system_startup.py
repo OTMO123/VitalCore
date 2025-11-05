@@ -5,6 +5,7 @@ These tests verify the basic system infrastructure is operational.
 Run these first to ensure the system can start and connect to dependencies.
 """
 import pytest
+import pytest_asyncio
 import asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession

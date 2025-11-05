@@ -30,7 +30,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, INET
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    validates,
+)
 
 from app.core.config import get_settings
 
@@ -552,6 +558,132 @@ class AuditLog(BaseModel):
         String(64), nullable=True
     )  # Made optional for flexibility
     sequence_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # HIPAA Compliance: Track if audit log has been persisted (immutability enforcement)
+    _is_persisted: bool = False
+
+    @property
+    def created_at(self) -> datetime:
+        """HIPAA compliance: Alias for timestamp to match audit requirements."""
+        return self.timestamp
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        HIPAA Compliance: Prevent modification of audit logs after persistence.
+
+        Audit logs must be immutable once created to maintain compliance with
+        HIPAA 164.312(b) Audit Controls requirement for tamper-proof audit trails.
+        """
+        # Allow setting during initial creation (before persistence)
+        if name == "_is_persisted":
+            object.__setattr__(self, name, value)
+            return
+
+        # Allow setting fields before persistence
+        if not hasattr(self, "_is_persisted") or not self._is_persisted:
+            object.__setattr__(self, name, value)
+            return
+
+        # After persistence, only allow SQLAlchemy internal attributes
+        if name.startswith("_sa_"):
+            object.__setattr__(self, name, value)
+            return
+
+        # Prevent modification of any audit log fields after persistence
+        raise ValueError(
+            f"HIPAA Compliance Violation: Audit logs are immutable. "
+            f"Cannot modify field '{name}' after persistence. "
+            f"This is required by HIPAA 164.312(b) for audit trail integrity."
+        )
+
+    def generate_content_hash(self) -> str:
+        """
+        HIPAA Compliance: Generate cryptographic hash for tamper detection.
+
+        Creates SHA-256 hash of audit log content for integrity verification
+        as required by HIPAA 164.312(c)(1) Integrity Controls.
+        """
+        import hashlib
+        import json
+
+        # Create canonical representation of audit log
+        content = {
+            "event_type": self.event_type,
+            "user_id": str(self.user_id) if self.user_id else None,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "action": self.action,
+            "resource_type": self.resource_type,
+            "resource_id": str(self.resource_id) if self.resource_id else None,
+            "outcome": self.outcome,
+            "ip_address": self.ip_address,
+        }
+
+        # Sort keys for consistent hashing
+        content_str = json.dumps(content, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(content_str.encode()).hexdigest()
+
+    def generate_chain_hash(self, previous_hash: Optional[str] = None) -> str:
+        """
+        HIPAA Compliance: Generate blockchain-style chain hash.
+
+        Links this audit log to previous log in the chain for tamper detection
+        as required by HIPAA 164.312(c)(2) for mechanism to authenticate ePHI.
+        """
+        import hashlib
+
+        content_hash = self.generate_content_hash()
+        prev_hash = previous_hash or self.previous_log_hash or "genesis"
+
+        # Create chain linking current to previous
+        chain_data = f"{prev_hash}:{content_hash}"
+        return hashlib.sha256(chain_data.encode()).hexdigest()
+
+    def verify_integrity(self) -> bool:
+        """
+        HIPAA Compliance: Verify audit log has not been tampered with.
+
+        Validates cryptographic hash to detect any unauthorized modifications
+        as required by HIPAA 164.312(c)(1) Integrity Controls.
+        """
+        if not self.log_hash:
+            return False
+
+        current_hash = self.generate_content_hash()
+        return current_hash == self.log_hash
+
+    def mark_persisted(self) -> None:
+        """
+        HIPAA Compliance: Mark audit log as persisted to enable immutability.
+
+        Once marked as persisted, no fields can be modified to maintain
+        audit trail integrity per HIPAA 164.312(b).
+        """
+        object.__setattr__(self, "_is_persisted", True)
+
+    @validates("timestamp")
+    def validate_timestamp_immutable(self, key: str, value: datetime) -> datetime:
+        """HIPAA Compliance: Prevent modification of timestamp after creation."""
+        if (
+            hasattr(self, "timestamp")
+            and self.timestamp is not None
+            and self._is_persisted
+        ):
+            raise ValueError(
+                "HIPAA Compliance Violation: Audit log timestamp is immutable. "
+                "Required by HIPAA 164.312(b) for audit trail integrity."
+            )
+        return value
+
+    @validates("event_type", "action", "outcome")
+    def validate_core_fields_immutable(self, key: str, value: Any) -> Any:
+        """HIPAA Compliance: Prevent modification of core audit fields after creation."""
+        current_value = getattr(self, key, None)
+        if current_value is not None and self._is_persisted:
+            raise ValueError(
+                f"HIPAA Compliance Violation: Audit log field '{key}' is immutable. "
+                f"Required by HIPAA 164.312(b) for audit trail integrity."
+            )
+        return value
 
 
 # =============================================================================
