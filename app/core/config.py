@@ -11,9 +11,16 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False, description="Debug mode")
     ENVIRONMENT: str = Field(default="development", description="Environment")
     
-    # Security
-    SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
-    JWT_SECRET_KEY: str = Field(default_factory=lambda: secrets.token_urlsafe(32), description="JWT signing key")
+    # Security - CRITICAL: These keys MUST persist across restarts
+    # Generate with: python scripts/generate_encryption_keys.py
+    SECRET_KEY: str = Field(
+        ...,  # Required field - no default
+        description="Secret key for application security (MUST be set in environment)"
+    )
+    JWT_SECRET_KEY: str = Field(
+        ...,  # Required field - no default
+        description="JWT signing key (MUST be set in environment)"
+    )
     JWT_ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
     ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, description="Token expiry")
@@ -41,14 +48,26 @@ class Settings(BaseSettings):
     IRIS_API_BATCH_SIZE: int = Field(default=100, description="API batch size")
     IRIS_API_ENABLE_MOCK: bool = Field(default=False, description="Enable mock IRIS API")
     
-    # Encryption
+    # Encryption - CRITICAL: PHI ENCRYPTION KEYS
+    # ⚠️  WARNING: Random key generation on restart causes PERMANENT DATA LOSS!
+    # ⚠️  These keys MUST persist across application restarts
+    # ⚠️  Loss of these keys = permanent loss of ALL encrypted PHI data
+    # Generate with: python scripts/generate_encryption_keys.py
+    PHI_ENCRYPTION_KEY: str = Field(
+        ...,  # Required field - no default, MUST be set in environment
+        description="Primary encryption key for PHI data (MUST persist across restarts)"
+    )
+    PHI_ENCRYPTION_KEY_ROTATION: Optional[str] = Field(
+        None,
+        description="Secondary key for key rotation support (optional)"
+    )
     ENCRYPTION_KEY: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(32),
-        description="Data encryption key"
+        ...,  # Required field - no default, MUST be set in environment
+        description="Data encryption key (MUST persist across restarts)"
     )
     ENCRYPTION_SALT: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(16),
-        description="Encryption salt for key derivation"
+        ...,  # Required field - no default, MUST be set in environment
+        description="Encryption salt for key derivation (MUST persist across restarts)"
     )
     
     # Audit Logging
@@ -230,11 +249,32 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = Field(default="minio123secure", description="MinIO secret key")
     MINIO_BUCKET_NAME: str = Field(default="healthcare-documents", description="MinIO bucket name")
     
-    @field_validator("SECRET_KEY", "ENCRYPTION_KEY", "ENCRYPTION_SALT")
+    @field_validator("SECRET_KEY", "JWT_SECRET_KEY", "ENCRYPTION_KEY", "ENCRYPTION_SALT", "PHI_ENCRYPTION_KEY")
     @classmethod
     def validate_keys(cls, v):
-        if len(v) < 16:
-            raise ValueError("Security keys must be at least 16 characters")
+        """Validate that critical security keys are properly set and meet minimum requirements."""
+        if not v:
+            raise ValueError(
+                "CRITICAL: Encryption keys MUST be set in environment variables. "
+                "Random key generation has been disabled to prevent data loss. "
+                "Generate keys with: python scripts/generate_encryption_keys.py"
+            )
+        if len(v) < 32:
+            raise ValueError(
+                "Security keys must be at least 32 characters for HIPAA compliance. "
+                f"Current length: {len(v)}"
+            )
+        return v
+
+    @field_validator("PHI_ENCRYPTION_KEY_ROTATION")
+    @classmethod
+    def validate_rotation_key(cls, v):
+        """Validate optional rotation key if provided."""
+        if v and len(v) < 32:
+            raise ValueError(
+                "PHI rotation key must be at least 32 characters for HIPAA compliance. "
+                f"Current length: {len(v)}"
+            )
         return v
     
     @field_validator("ENVIRONMENT")

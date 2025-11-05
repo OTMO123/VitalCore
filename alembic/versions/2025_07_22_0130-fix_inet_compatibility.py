@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers
 revision = 'fix_inet_compatibility'
-down_revision = None  # Set this to the latest revision
+down_revision = '3015d4f5bfb4'  # Follows merge of multiple heads
 branch_labels = None
 depends_on = None
 

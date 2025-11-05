@@ -79,8 +79,81 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager with enhanced error logging."""
     logger.info("Starting IRIS API Integration System")
-    
+
     try:
+        # CRITICAL: Validate encryption keys are properly configured
+        logger.info("Validating encryption key configuration...")
+        settings = get_settings()
+
+        # Validate that encryption keys are set and meet requirements
+        required_keys = {
+            "PHI_ENCRYPTION_KEY": settings.PHI_ENCRYPTION_KEY,
+            "ENCRYPTION_KEY": settings.ENCRYPTION_KEY,
+            "ENCRYPTION_SALT": settings.ENCRYPTION_SALT,
+            "JWT_SECRET_KEY": settings.JWT_SECRET_KEY,
+            "SECRET_KEY": settings.SECRET_KEY,
+        }
+
+        missing_keys = []
+        short_keys = []
+
+        for key_name, key_value in required_keys.items():
+            if not key_value:
+                missing_keys.append(key_name)
+            elif len(key_value) < 32:
+                short_keys.append(f"{key_name} (length: {len(key_value)}, required: 32+)")
+
+        if missing_keys:
+            error_msg = (
+                f"CRITICAL CONFIGURATION ERROR: Missing required encryption keys: {', '.join(missing_keys)}\n"
+                f"\n"
+                f"⚠️  Encryption keys MUST be set in environment variables.\n"
+                f"⚠️  Random key generation has been DISABLED to prevent data loss.\n"
+                f"\n"
+                f"To fix this issue:\n"
+                f"1. Generate encryption keys: python scripts/generate_encryption_keys.py\n"
+                f"2. Add keys to .env file or set as environment variables\n"
+                f"3. Restart the application\n"
+                f"\n"
+                f"For detailed instructions, see: docs/ENCRYPTION_KEY_SETUP.md\n"
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        if short_keys:
+            error_msg = (
+                f"CRITICAL CONFIGURATION ERROR: Encryption keys too short: {', '.join(short_keys)}\n"
+                f"\n"
+                f"⚠️  All encryption keys must be at least 32 characters for HIPAA compliance.\n"
+                f"\n"
+                f"To fix this issue:\n"
+                f"1. Generate new encryption keys: python scripts/generate_encryption_keys.py\n"
+                f"2. Replace existing keys in .env or environment variables\n"
+                f"3. Restart the application\n"
+                f"\n"
+                f"For detailed instructions, see: docs/ENCRYPTION_KEY_SETUP.md\n"
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logger.info("✅ Encryption keys validated successfully",
+                   phi_key_length=len(settings.PHI_ENCRYPTION_KEY),
+                   encryption_key_length=len(settings.ENCRYPTION_KEY),
+                   salt_length=len(settings.ENCRYPTION_SALT),
+                   has_rotation_key=bool(settings.PHI_ENCRYPTION_KEY_ROTATION))
+
+        # Test encryption service initialization
+        logger.info("Initializing encryption service...")
+        from app.core.security import encryption_service
+        test_data = "encryption_startup_test"
+        encrypted = await encryption_service.encrypt(test_data)
+        decrypted = await encryption_service.decrypt(encrypted)
+
+        if decrypted != test_data:
+            raise RuntimeError("Encryption service validation failed: decryption mismatch")
+
+        logger.info("✅ Encryption service initialized and validated successfully")
+
         # Initialize database with detailed logging
         logger.info("Initializing database connection...")
         await init_db()

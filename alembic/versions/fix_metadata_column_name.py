@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = 'fix_metadata_column'
-down_revision = None  # Update this to the latest revision
+down_revision = '2025_06_29_0320'  # Branches from same point as fix_audit_enum
 branch_labels = None
 depends_on = None
 
