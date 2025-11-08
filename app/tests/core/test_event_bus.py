@@ -131,56 +131,67 @@ class EventBusTestEventBusBasics:
     
     @pytest.mark.asyncio
     async def test_typed_event_handler(self, event_bus):
-        """Test typed event handler only receives correct types."""
-        typed_handler = TypedTestHandler("typed_handler")
-        general_handler = EventBusEventBusTestHandler("general_handler")
-        
+        """Test typed event handler only receives correct types - NO TIMING DEPENDENCIES."""
+        typed_collector = EventCollector()
+        general_collector = EventCollector()
+
+        typed_handler = TypedTestHandler("typed_handler", collector=typed_collector)
+        general_handler = EventBusTestHandler("general_handler", collector=general_collector)
+
         event_bus.subscribe(typed_handler)
         event_bus.subscribe(general_handler)
-        
+
         test_event = EventBusTestEvent(
             aggregate_id="test_aggregate",
             aggregate_type="test",
             publisher="test_publisher"
         )
-        
+
         another_event = AnotherEventBusTestEvent(
             aggregate_id="test_aggregate",
-            aggregate_type="test", 
+            aggregate_type="test",
             publisher="test_publisher"
         )
-        
+
         # Publish both events
         await event_bus.publish(test_event)
         await event_bus.publish(another_event)
-        
-        await asyncio.sleep(0.1)
-        
+
+        # Wait for both handlers to process (general handler gets 2 events)
+        await general_collector.wait_for_event(count=2, timeout=5.0)
+
         # Typed handler should only receive EventBusTestEvent
         assert len(typed_handler.events_received) == 1
         assert isinstance(typed_handler.events_received[0], EventBusTestEvent)
-        
+
         # General handler should receive both
         assert len(general_handler.events_received) == 2
     
     @pytest.mark.asyncio
     async def test_multiple_handlers_same_event(self, event_bus):
-        """Test multiple handlers can process the same event."""
-        handler1 = EventBusEventBusTestHandler("handler1")
-        handler2 = EventBusEventBusTestHandler("handler2")
-        
+        """Test multiple handlers can process the same event - NO TIMING DEPENDENCIES."""
+        collector1 = EventCollector()
+        collector2 = EventCollector()
+
+        handler1 = EventBusTestHandler("handler1", collector=collector1)
+        handler2 = EventBusTestHandler("handler2", collector=collector2)
+
         event_bus.subscribe(handler1)
         event_bus.subscribe(handler2)
-        
+
         event = EventBusTestEvent(
             aggregate_id="test_aggregate",
             aggregate_type="test",
             publisher="test_publisher"
         )
-        
+
         await event_bus.publish(event)
-        await asyncio.sleep(0.1)
-        
+
+        # Wait for both handlers to process
+        received1 = await collector1.wait_for_event(timeout=5.0)
+        received2 = await collector2.wait_for_event(timeout=5.0)
+        assert received1 and received2, "Not all handlers processed event"
+
         # Both handlers should receive the event
         assert len(handler1.events_received) == 1
         assert len(handler2.events_received) == 1
@@ -219,10 +230,11 @@ class TestAggregateOrdering:
     
     @pytest.mark.asyncio
     async def test_different_aggregates_parallel_processing(self, event_bus):
-        """Test events from different aggregates can be processed in parallel."""
-        handler = EventBusEventBusTestHandler("test_handler")
+        """Test events from different aggregates can be processed in parallel - NO TIMING DEPENDENCIES."""
+        collector = EventCollector()
+        handler = EventBusTestHandler("test_handler", collector=collector)
         event_bus.subscribe(handler)
-        
+
         # Create events for different aggregates
         events = []
         for i in range(10):
@@ -234,8 +246,9 @@ class TestAggregateOrdering:
             )
             events.append(event)
             await event_bus.publish(event)
-        
-        await asyncio.sleep(0.2)
+
+        # Wait for all 10 events to be processed
+        await collector.wait_for_event(count=10, timeout=5.0)
         
         # All events should be processed
         assert len(handler.events_received) == 10
@@ -245,12 +258,12 @@ class TestCircuitBreaker:
     
     @pytest.mark.asyncio
     async def test_circuit_breaker_opens_on_failures(self, event_bus):
-        """Test circuit breaker opens after threshold failures."""
-        failing_handler = EventBusEventBusTestHandler("failing_handler", should_fail=True)
+        """Test circuit breaker opens after threshold failures - NO TIMING DEPENDENCIES."""
+        failing_handler = EventBusTestHandler("failing_handler", should_fail=True)
         failing_handler.circuit_breaker.failure_threshold = 3
-        
+
         event_bus.subscribe(failing_handler)
-        
+
         # Send events that will fail
         for i in range(5):
             event = EventBusTestEvent(
@@ -259,32 +272,43 @@ class TestCircuitBreaker:
                 publisher="test_publisher"
             )
             await event_bus.publish(event)
-        
-        await asyncio.sleep(0.2)
-        
+
+        # Wait for circuit breaker to open (condition-based)
+        opened = await wait_for_event(
+            lambda: failing_handler.circuit_breaker.state == "open",
+            timeout=5.0,
+            error_message="Circuit breaker did not open"
+        )
+        assert opened, "Circuit breaker should have opened"
+
         # Circuit breaker should be open
         assert failing_handler.circuit_breaker.state == "open"
         assert failing_handler.circuit_breaker.failure_count >= 3
     
     @pytest.mark.asyncio
     async def test_circuit_breaker_prevents_calls_when_open(self, event_bus):
-        """Test circuit breaker prevents calls when open."""
-        handler = EventBusEventBusTestHandler("test_handler")
+        """Test circuit breaker prevents calls when open - NO TIMING DEPENDENCIES."""
+        collector = EventCollector()
+        handler = EventBusTestHandler("test_handler", collector=collector)
         handler.circuit_breaker.state = "open"
         handler.circuit_breaker.last_failure_time = datetime.utcnow()
-        
+
         event_bus.subscribe(handler)
-        
+
         event = EventBusTestEvent(
             aggregate_id="test_aggregate",
             aggregate_type="test",
             publisher="test_publisher"
         )
-        
+
         await event_bus.publish(event)
-        await asyncio.sleep(0.1)
-        
+
+        # Wait briefly - event should NOT be processed (circuit breaker prevents it)
+        # Use timeout expectation - we expect this to timeout since no event should arrive
+        received = await collector.wait_for_event(timeout=0.5)
+
         # Handler should not receive event due to open circuit breaker
+        assert not received, "Handler should not receive event when circuit breaker is open"
         assert len(handler.events_received) == 0
 
 class TestBackpressure:
