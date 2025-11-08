@@ -1,0 +1,37 @@
+File Path,Issue Type,Severity,Line(s),Description,Recommendation
+app/tests/integration/test_example_integration.py,Timing Dependency,HIGH,94,"Uses asyncio.sleep(0.1) for event processing wait","Replace with proper event completion signals"
+app/tests/integration/test_iris_api_simple.py,Timeout Skip,HIGH,18,"Skips test on timeout instead of failing","Change to fail on timeout to catch real issues"
+app/tests/integration/test_iris_api_simple.py,Heavy Mocking,MEDIUM,27-68,"Completely mocks OAuth2 flow","Add integration tests with real IRIS API test endpoints"
+app/tests/integration/test_iris_api_comprehensive.py,Timeout Skip,HIGH,755,"Skips test on OAuth2 timeout","Change to fail and investigate timeout cause"
+app/tests/integration/test_iris_api_comprehensive.py,Database Skip,HIGH,107,"Skips on database session failure","Fix database configuration instead of skipping"
+app/tests/performance/test_load_testing.py,Heavy Mocking,HIGH,74-86,"Mocks all authentication for performance tests","Create realistic auth test environment"
+app/tests/performance/test_load_testing.py,Timing Dependency,HIGH,Multiple,"Multiple sleep calls and timing-based assertions","Use resource-based polling instead of fixed waits"
+app/tests/performance/test_load_testing.py,Environment Dependent,HIGH,Multiple,"Results vary based on system resources","Run in isolated environment with fixed resources"
+app/tests/healthcare_records/test_fhir_rest_api.py,Heavy Mocking,HIGH,Multiple,"25+ tests using mock service instead of real implementation","Separate unit tests (mocked) from integration tests (real)"
+app/tests/core/test_database_performance.py,Heavy Mocking,HIGH,345+,"Mocks database URL and connections","Use test database with real connection pool"
+app/tests/test_containers_config.py,Conditional Skip,MEDIUM,307,"Skips if testcontainers not available","Mark with @pytest.mark.requires_containers and fail if needed"
+app/tests/test_containers_config.py,Conditional Skip,MEDIUM,374,"Skips if testcontainers not available","Mark with @pytest.mark.requires_containers and fail if needed"
+app/tests/test_containers_config.py,Conditional Skip,MEDIUM,387,"Skips if testcontainers not available","Mark with @pytest.mark.requires_containers and fail if needed"
+app/tests/security/test_ml_security_comprehensive.py,Conditional Skip,MEDIUM,110,Skips if ML dependencies not available,Fail if dependencies missing in test environment
+app/tests/security/test_ml_security_comprehensive.py,Conditional Skip,MEDIUM,148,Skips if ML dependencies not available,Fail if dependencies missing in test environment
+app/tests/security/test_ml_security_comprehensive.py,Conditional Skip,MEDIUM,177,Skips if ML dependencies not available,Fail if dependencies missing in test environment
+app/tests/security/test_ml_security_comprehensive.py,Conditional Skip,MEDIUM,218,Skips if ML dependencies not available,Fail if dependencies missing in test environment
+app/tests/security/test_ml_security_comprehensive.py,Conditional Skip,MEDIUM,265,Skips if transformers not available,Fail if dependencies missing in test environment
+app/tests/security/test_ml_security_comprehensive.py,Conditional Skip,MEDIUM,278,Skips if ML dependencies not available,Fail if dependencies missing in test environment
+app/tests/security/test_ml_security_comprehensive.py,Conditional Skip,MEDIUM,312,Skips if ML dependencies not available,Fail if dependencies missing in test environment
+app/tests/api/test_fhir_rest_api_complete.py,Conditional Skip,HIGH,79,"Skips if database dependencies not available","Ensure dependencies available in CI/CD"
+app/tests/api/test_fhir_rest_api_complete.py,Conditional Skip,HIGH,86,"Skips if aiosqlite missing","Ensure dependencies available in CI/CD"
+app/tests/core/document_management/test_storage_backend.py,Heavy Mocking,HIGH,63+,"Mocks MinIO client instead of using test instance","Use MinIO test container for real integration testing"
+app/modules/document_management/test_security_compliance.py,Heavy Mocking,HIGH,Multiple,"20+ tests with mocked services","Separate unit tests from integration tests"
+app/modules/document_management/test_router_crud.py,Heavy Mocking,HIGH,Multiple,"15+ tests with mocked document service","Add integration tests with real document service"
+app/tests/core/test_event_bus.py,Timing Dependency,MEDIUM,460,"Waits for graceful shutdown with timing","Use explicit shutdown signals"
+app/tests/e2e_predictive/test_ml_prediction_engine.py,Random Data,MEDIUM,Multiple,"Uses random data for ML predictions","Seed random generator for reproducibility"
+app/modules/document_management/dicom_test_data.py,Random Data,LOW,Multiple,"Generates random DICOM test data","Use deterministic test data factory"
+app/tests/conftest.py,Conditional Skip,MEDIUM,1165,"Skips container tests if testcontainers unavailable","Fail in CI if testcontainers needed but unavailable"
+app/modules/clinical_workflows/tests/performance/test_api_performance.py,Timing Dependency,HIGH,Multiple,"Performance timing tests","Use percentile-based assertions"
+app/tests/integration/test_patient_api_full.py,Heavy Mocking,MEDIUM,665,"Mocks audit event logging","Test real audit logging in integration tests"
+app/tests/modules/document_management/test_orthanc_integration.py,Heavy Mocking,HIGH,Multiple,"Mocks Orthanc client","Use Orthanc test container"
+app/tests/integration/test_external_registry_integration.py,Heavy Mocking,HIGH,Multiple,"Mocks external registry calls","Use contract testing or real test endpoints"
+app/tests/healthcare_roles/test_doctor_role_security.py,Heavy Mocking,MEDIUM,Multiple,"Mocks role-based access control","Test real RBAC in integration tests"
+app/tests/load_testing/test_load_testing_comprehensive.py,Environment Dependent,HIGH,Multiple,"Comprehensive load tests vary by environment","Standardize test environment resources"
+app/tests/core/test_load_testing.py,Environment Dependent,HIGH,Multiple,"Load testing utilities","Document required resources and thresholds"
