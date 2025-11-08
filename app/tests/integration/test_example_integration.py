@@ -7,6 +7,7 @@ types of integration testing scenarios.
 
 import pytest
 import pytest_asyncio
+import asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import AsyncMock, patch
@@ -16,6 +17,7 @@ from app.core.database_unified import User, AuditLog
 from app.core.event_bus import EventBus, Event, EventType
 from app.modules.auth.service import AuthService
 from app.modules.iris_api.client import IRISAPIClient
+from app.tests.utils.event_utils import EventCollector
 
 
 # ==================== Database Integration Tests ====================
@@ -75,10 +77,18 @@ async def test_audit_log_creation(db_session: AsyncSession, test_user: User):
 @pytest_asyncio.fixture
 @pytest.mark.asyncio
 async def test_event_bus_integration(test_event_bus: EventBus, mock_event_handler: AsyncMock):
-    """Test event bus with real async operations."""
+    """Test event bus with real async operations - no timing dependencies."""
+    # Create event collector to track event handling
+    collector = EventCollector()
+
+    # Wrap mock handler to signal collection
+    async def wrapped_handler(event):
+        await mock_event_handler(event)
+        await collector.collect(event)
+
     # Subscribe to events
-    test_event_bus.subscribe(EventType.USER_LOGIN_SUCCESS, mock_event_handler)
-    
+    test_event_bus.subscribe(EventType.USER_LOGIN_SUCCESS, wrapped_handler)
+
     # Publish event
     test_event = Event(
         event_type=EventType.USER_LOGIN_SUCCESS,
@@ -86,13 +96,13 @@ async def test_event_bus_integration(test_event_bus: EventBus, mock_event_handle
         action="login",
         outcome="success"
     )
-    
+
     await test_event_bus.publish(test_event)
-    
-    # Wait for event processing
-    import asyncio
-    await asyncio.sleep(0.1)
-    
+
+    # Wait for event processing with timeout (no arbitrary sleep)
+    received = await collector.wait_for_event(timeout=5.0)
+    assert received, "Event was not processed within timeout"
+
     # Verify handler was called
     mock_event_handler.assert_called_once()
     called_event = mock_event_handler.call_args[0][0]

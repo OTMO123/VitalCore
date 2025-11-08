@@ -1160,9 +1160,14 @@ def pytest_configure(config):
 
 def pytest_runtest_setup(item):
     """Setup hook for individual tests."""
-    # Skip container tests if testcontainers not available
+    # Fail (not skip) container tests if testcontainers not available
+    # This ensures test environment issues are addressed rather than hidden
     if item.get_closest_marker("requires_containers") and not TESTCONTAINERS_AVAILABLE:
-        pytest.skip("testcontainers not available")
+        pytest.fail(
+            "Test requires 'testcontainers' package but it is not available.\n"
+            "Install it with: pip install testcontainers\n"
+            "Tests marked with @pytest.mark.requires_containers need Docker support."
+        )
 
 
 # ==================== Async Event Loop Management ====================

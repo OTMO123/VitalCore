@@ -1,6 +1,10 @@
 """
 Simple IRIS API Integration Tests
 Production-ready OAuth2 and authentication testing without complex database fixtures.
+
+NOTE: This file contains MOCK-based tests. These tests use mocked HTTP responses
+and do NOT test real IRIS API integration. See test_iris_api_integration.py for
+real integration tests with actual API calls.
 """
 import pytest
 import asyncio
@@ -8,21 +12,33 @@ import secrets
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone
 
-# Simple timeout decorator to prevent hanging tests
+# Timeout decorator that FAILS (not skips) on timeout
 def timeout_test(seconds=30):
+    """
+    Timeout decorator that fails the test on timeout.
+
+    Changed from skip to fail to ensure infrastructure issues are addressed.
+    If tests consistently timeout, the test environment needs to be fixed.
+    """
     def decorator(func):
         async def wrapper(*args, **kwargs):
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=seconds)
             except asyncio.TimeoutError:
-                pytest.skip(f"Test timed out after {seconds} seconds - likely external dependency issue")
+                pytest.fail(
+                    f"Test '{func.__name__}' timed out after {seconds} seconds.\n"
+                    f"This indicates a problem with test infrastructure or implementation.\n"
+                    f"Please investigate and fix the underlying issue."
+                )
         return wrapper
     return decorator
 
+@pytest.mark.mock
 class TestIRISAPISimple:
-    """Simplified IRIS API integration tests without heavy database fixtures."""
-    
+    """Simplified IRIS API tests using mocked responses (unit-style tests)."""
+
     @pytest.mark.asyncio
+    @pytest.mark.unit
     @timeout_test(30)
     async def test_oauth2_authentication_mock(self):
         """
