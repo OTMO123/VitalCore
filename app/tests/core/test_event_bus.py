@@ -8,6 +8,8 @@ Comprehensive test suite covering:
 - Integrity verification
 - Performance under load
 - Graceful shutdown
+
+FIXED: Replaced all asyncio.sleep() waits with EventCollector for reliable testing.
 """
 
 import pytest
@@ -21,6 +23,7 @@ from app.core.event_bus_advanced import (
     AggregateQueue, CircuitBreakerState, DeadLetterQueue,
     EventMetadata, EventPriority, DeliveryMode
 )
+from app.tests.utils.event_utils import EventCollector, wait_for_event
 
 # Test Events
 class EventBusEventBusTestEvent(BaseEvent):
@@ -33,15 +36,18 @@ class AnotherEventBusTestEvent(BaseEvent):
 
 # Test Handlers
 class EventBusTestHandler(EventHandler):
-    """Test event handler."""
-    
-    def __init__(self, handler_name: str, should_fail: bool = False):
+    """Test event handler with EventCollector support."""
+
+    def __init__(self, handler_name: str, should_fail: bool = False, collector: EventCollector = None):
         super().__init__(handler_name)
         self.should_fail = should_fail
         self.events_received = []
-    
+        self.collector = collector
+
     async def handle(self, event: BaseEvent) -> bool:
         self.events_received.append(event)
+        if self.collector:
+            await self.collector.collect(event)
         if self.should_fail:
             raise Exception("Handler intentionally failed")
         return True
@@ -60,14 +66,17 @@ class SlowEventHandler(EventHandler):
         return True
 
 class TypedTestHandler(TypedEventHandler):
-    """Typed test handler."""
-    
-    def __init__(self, handler_name: str):
+    """Typed test handler with EventCollector support."""
+
+    def __init__(self, handler_name: str, collector: EventCollector = None):
         super().__init__(handler_name, [EventBusEventBusTestEvent])
         self.events_received = []
-    
+        self.collector = collector
+
     async def handle(self, event: BaseEvent) -> bool:
         self.events_received.append(event)
+        if self.collector:
+            await self.collector.collect(event)
         return True
 
 @pytest.fixture
@@ -97,23 +106,25 @@ class EventBusTestEventBusBasics:
     
     @pytest.mark.asyncio
     async def test_event_publishing_and_subscription(self, event_bus):
-        """Test basic event publishing and subscription."""
-        handler = EventBusEventBusTestHandler("test_handler")
+        """Test basic event publishing and subscription - NO TIMING DEPENDENCIES."""
+        collector = EventCollector()
+        handler = EventBusTestHandler("test_handler", collector=collector)
         event_bus.subscribe(handler)
-        
+
         event = EventBusTestEvent(
             aggregate_id="test_aggregate",
             aggregate_type="test",
             publisher="test_publisher"
         )
-        
+
         # Publish event
         success = await event_bus.publish(event)
         assert success
-        
-        # Wait for processing
-        await asyncio.sleep(0.1)
-        
+
+        # Wait for processing with proper event synchronization
+        received = await collector.wait_for_event(timeout=5.0)
+        assert received, "Event not processed within timeout"
+
         # Verify handler received event
         assert len(handler.events_received) == 1
         assert handler.events_received[0].event_id == event.event_id
