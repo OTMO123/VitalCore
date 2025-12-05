@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 import asyncio
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from cryptography.fernet import Fernet
@@ -26,8 +26,7 @@ from app.core.config import get_settings
 
 logger = structlog.get_logger()
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing - using bcrypt directly for compatibility
 
 # HTTP Bearer token - auto_error=False allows manual handling of missing credentials
 security = HTTPBearer(auto_error=False)
@@ -55,34 +54,34 @@ class SecurityManager:
     
     def hash_password(self, password: str) -> str:
         """Hash password using bcrypt."""
-        return pwd_context.hash(password)
-    
+        return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verify password against hash."""
         import time
         start_time = time.time()
-        
+
         try:
             logger.debug("SECURITY_MANAGER - Starting password verification",
                         password_length=len(plain_password) if plain_password else 0,
                         hash_length=len(hashed_password) if hashed_password else 0,
                         hash_prefix=hashed_password[:10] if hashed_password else None)
-            
+
             if not plain_password or not hashed_password:
                 logger.warning("SECURITY_MANAGER - Missing password or hash",
                              has_password=bool(plain_password),
                              has_hash=bool(hashed_password))
                 return False
-            
-            result = pwd_context.verify(plain_password, hashed_password)
+
+            result = bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
             verification_time = time.time() - start_time
-            
+
             logger.info("SECURITY_MANAGER - Password verification completed",
                        result=result,
                        verification_time_ms=round(verification_time * 1000, 2))
-            
+
             return result
-            
+
         except Exception as e:
             error_time = time.time() - start_time
             logger.error("SECURITY_MANAGER - Password verification failed",

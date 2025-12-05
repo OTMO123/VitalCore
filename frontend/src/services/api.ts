@@ -14,8 +14,11 @@ class ApiClient {
   private refreshTokenPromise: Promise<string> | null = null;
 
   constructor() {
+    // Use relative URL for Vite proxy, or fallback to localhost for non-Docker dev
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    const baseURL = apiBaseUrl ? `${apiBaseUrl}/api/v1` : '/api/v1';
     this.client = axios.create({
-      baseURL: 'http://localhost:8000/api/v1',
+      baseURL,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
@@ -229,15 +232,10 @@ class ApiClient {
   // ============================================
 
   async login(username: string, password: string): Promise<ApiResponse> {
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
-
     try {
-      const response = await this.client.post('/auth/login', formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+      const response = await this.client.post('/auth/login', {
+        username,
+        password,
       });
 
       const { access_token, refresh_token } = response.data;

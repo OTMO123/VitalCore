@@ -29,7 +29,6 @@ pyjwt>=2.8.0
 
 # FHIR and healthcare standards
 fhir.resources>=7.1.0
-hl7-fhir-r4-core>=4.0.0
 
 # Monitoring and logging
 structlog>=23.2.0
